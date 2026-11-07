@@ -1,13 +1,80 @@
 <!DOCTYPE html>
-<html lang="">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <meta name="description" content="节点(NODE) — 智能模拟面试，简历 AI 分析，实时评分反馈，助你轻松拿 offer">
+    <title>节点 NODE · 智能模拟面试平台</title>
+    <!-- 主题引导：必须在首屏绘制前同步执行，否则硬刷新会先按浅色画一帧
+         再翻成深色（FOUC）。着陆页是首屏，这个白闪最显眼。
+         localStorage 的 key 与判断逻辑必须和 src/theme/useTheme.js 一致 ——
+         内联脚本无法 import 模块，此处重复是刻意的。 -->
+    <script>
+      (function () {
+        try {
+          var m = localStorage.getItem('node-theme')
+          var dark =
+            m === 'dark' ||
+            ((!m || m === 'system') &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+        } catch (e) {
+          /* 无 localStorage（隐私模式等）时保持默认浅色 */
+        }
+      })()
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Ma+Shan+Zheng&display=swap"
+      rel="stylesheet"
+    >
+    <!-- 上面 link 里的 Ma Shan Zheng（马善政毛笔楷书）是行楷的系统字体兜底：
+         本机装了「华文行楷」时优先用它，没装的设备退到这个开源字体，
+         而不是掉到系统默认的黑体。
+         Google 会按 unicode-range 把它切成 92 个子集，浏览器只下载用到的那几个，
+         所以全站只多几个小请求，不是一次拉几 MB。 -->
+
+    <!-- ===== Dify 悬浮对话气泡（官方嵌入）=====
+         气泡和浮层都是 embed.min.js 注入到本页 DOM 的，所以这里的样式能作用到它们。
+         图标是白色（fill="white"），底色必须够深 —— 不能用会随主题变浅的 --accent：
+         深色模式下 --accent 是 #7fd4a0，白图标压上去只有 1.77:1，等于看不见。
+         固定用 #2E7D5B，与白色对比 4.84:1，浅色/深色两种主题下都成立。 -->
+    <style>
+      #dify-chatbot-bubble-button {
+        background-color: #2e7d5b !important;
+      }
+      #dify-chatbot-bubble-button:hover {
+        background-color: #25654a !important;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
+
+    <!-- ===== Dify 悬浮对话气泡（官方嵌入）=====
+         为什么直接写在 index.html，而不是 main.js 里动态注入：
+         1. embed.min.js 要求 window.difyChatbotConfig 在它执行【之前】就存在，
+            写在这里前后顺序天然正确，不必靠 onMounted 抢时机；
+         2. 它是全站级的挂件，放进 SPA 反而要处理路由切换时的重复注入与销毁。
+         defer 保证它不阻塞首屏。
+
+         token 对应 Dify 云上的那个应用。注意嵌入专用地址是
+         https://udify.app/chatbot/<token>（不是给人看的 /chat/<token>），
+         该地址的 CSP 里明确写了 frame-ancestors 'self' *，允许被 iframe 加载。 -->
+    <script>
+      /* 该应用有 4 个必填输入（面试岗位 / 姓名 / 年龄 / 学历），
+         官方 WebApp 会先弹一个前置表单要求填写。
+         想少填两项就在这里加预填，注意 inputs 只在脚本执行时读一次，
+         之后在 SPA 里改岗位不会同步：
+         inputs: { position: '数据开发工程师', user_name: '张三' } */
+      window.difyChatbotConfig = {
+        token: 'irNZtwsZL89lPFHL'
+      }
+    </script>
+    <script src="https://udify.app/embed.min.js" id="irNZtwsZL89lPFHL" defer></script>
   </body>
 </html>

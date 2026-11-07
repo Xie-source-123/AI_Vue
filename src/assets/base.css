@@ -1,55 +1,384 @@
-/* color palette from <https://github.com/vuejs/theme> */
+/* =====================================================================
+   节点 NODE — 春芽浅绿 · 草木青 · 深林墨绿
+   三栏工作台 ｜ 双模式 ｜ 白底 ｜ Inter + JetBrains Mono
+   ===================================================================== */
+
+/* =====================================================================
+   浅色（白底）
+   ===================================================================== */
 :root {
-  --vt-c-white: #ffffff;
-  --vt-c-white-soft: #f8f8f8;
-  --vt-c-white-mute: #f2f2f2;
+  /* ---- 画布与表面 ---- */
+  --canvas: #ffffff;
+  --canvas-2: #f7fbf3;
+  --surface: #ffffff;
+  --surface-2: #f2f8ee;
+  --surface-3: #e8f3e2;
+  --surface-glass: rgba(255, 255, 255, 0.72);
+  --hairline: #e2eee4;
+  --hairline-strong: #cfe2d3;
+  --chip: #e8f3e2;
 
-  --vt-c-black: #181818;
-  --vt-c-black-soft: #222222;
-  --vt-c-black-mute: #282828;
+  /* ---- 文字 ---- */
+  --ink: #14332b;
+  --body: #2a4a3f;
+  --body-muted: #6b8a7d;
+  --ink-muted-80: #6b8a7d;
+  --ink-muted-48: #9ab3a6;
 
-  --vt-c-indigo: #2c3e50;
+  /* ---- 三栏：左侧两栏浅色 ---- */
+  --rail-bg: #fbfdf9;
+  --rail-bg2: #f2f8ee;
+  --rail-ink: #14332b;
+  --rail-text: #2a4a3f;
+  --rail-muted: #6b8a7d;
+  --rail-hairline: #e2eee4;
+  --rail-hover: #eef6e9;
+  --rail-active: #e3f4d8;
 
-  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
-  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
+  /* ---- 强调色 ---- */
+  --accent: #4f9d7a;          /* 草木青 */
+  --accent-hover: #3a7d60;
+  --accent-ink: #ffffff;
+  --accent-soft: #c5f09b;     /* 春芽浅绿 */
+  --accent-wash: rgba(79, 157, 122, 0.12);
+  --accent-wash-2: rgba(79, 157, 122, 0.2);
+  --accent-line: rgba(79, 157, 122, 0.32);
+  --accent-glow: rgba(197, 240, 155, 0.5);
+  --accent-bright: #4f9d7a;
 
-  --vt-c-text-light-1: var(--vt-c-indigo);
-  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
-  --vt-c-text-dark-1: var(--vt-c-white);
-  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
+  /* ---- 语义色 ---- */
+  --success: #3a9d6a;
+  --warn: #b8860b;
+  --warn-soft: #e6c463;
+  --warn-deep: #8f6a0a;
+  --warn-wash: rgba(184, 134, 11, 0.13);
+  --danger: #c4453c;
+  --danger-wash: rgba(196, 69, 60, 0.1);
+  --danger-line: rgba(196, 69, 60, 0.45);
+  --on-danger: #ffffff;
+  --info: #3a8fa0;
+  --muted-wash: rgba(107, 138, 125, 0.11);
+
+  /* ---- 几何 ---- */
+  /* ---- 统一圆角刻度 ---- */
+  --rad-card: 28px;
+  --rad-panel: 24px;
+  --rad-rail: 20px;
+  --rad-block: 12px;
+  --rad-sm: 8px;
+  --rad-pill: 9999px;
+  /* ---- 旧别名，全部归一到上面的刻度 ---- */
+  --r: 8px;
+  --r-lg: 12px;
+  --r-soft: 8px;
+  --r-xs: 0px;
+  --r-sm: 8px;
+  --r-md: 8px;
+  --r-tech: 8px;
+  --r-tech-lg: 12px;
+  --r-tech-xl: 12px;
+
+  /* ---- 间距 ---- */
+  --sp-xxs: 4px;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 16px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-xxl: 48px;
+  --sp-section: 96px;
+
+  /* ---- 栏位 ---- */
+  --rail-w: 64px;
+  --list-w: 300px;
+
+  /* ---- 字体 ---- */
+  --font-display: 'Inter', 'SF Pro Display', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  --font-body: 'Inter', 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'SFMono-Regular', Menlo,
+    Consolas, 'Liberation Mono', monospace;
+
+  /* ---- 字距 ---- */
+  --track-display: -0.03em;
+  --track-tight: -0.015em;
+  --track-eyebrow: 0.06em;
+  --track-label: 0.14em;
+
+  /* ---- 投影 ---- */
+  --shadow-sm: 0 1px 2px rgba(20, 51, 43, 0.05);
+  --shadow-md: 0 6px 18px rgba(20, 51, 43, 0.08);
+  --shadow-lg: 0 14px 36px rgba(20, 51, 43, 0.10);
+  --product-shadow: var(--shadow-sm);
+  --card-border: 1px solid var(--hairline);
+
+  /* ---- 背景 ---- */
+  --grid-line: rgba(20, 51, 43, 0.03);
+  --glow: rgba(79, 157, 122, 0.20);
+  --sheen: rgba(255, 255, 255, 0.95);
+  /* 冷调磨砂玻璃：基色取自草木青，去掉春芽浅绿的黄味（黄绿玻璃盖在青灰绿底上会发脏）。
+     两块面板用「基色明度 + 透明度」区分，而不是靠浓底衬透色 ——
+     后者会把整个应用泡在绿里，虽分得开但发脏。
+     面板基色更亮、图标条基色更深，明度差本身就保证能分开。 */
+  --glass-panel: rgba(232, 242, 238, 0.72);
+  --glass-rail: rgba(214, 230, 224, 0.58);
+  --shell-glow: rgba(79, 157, 122, 0.22);
+  /* 卡片：与主题色同源的绿色渐变，让材质不再是「一块平白」 */
+  --card-grad: linear-gradient(158deg, rgba(236, 245, 233, 0.74) 0%, rgba(219, 239, 205, 0.54) 100%);
+  /* 卡内区块材质：叠在卡片渐变之上的半透明白。
+     用叠加而不是硬编码色值 —— 白色会继承底下卡片当前的颜色，
+     所以数据工作台的卡片变冷青时，内层块自动跟着偏青，无需逐套配色。 */
+  --inset-glass: linear-gradient(160deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.3) 100%);
+  --inset-sheen: rgba(255, 255, 255, 0.8);
+  /* 强柔光玻璃：通透度更高、对角渐变（曲面感），用于快捷栏与示例行这类纯展示框 */
+  --glass-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 100%);
+  /* 玻璃按钮：默认态与悬停态两种透明度 */
+  --btn-glass: rgba(255, 255, 255, 0.34);
+  --btn-glass-hover: rgba(255, 255, 255, 0.5);
+  /* 一级卡（hero）的顶部高光，比普通卡更强 */
+  --hero-sheen: rgba(255, 255, 255, 0.52);
+  --shadow-inset: rgba(20, 51, 43, 0.06);
+
+  /* ---- 运动 ---- */
+  --dur-fast: 0.14s;
+  --dur-base: 0.2s;
+  --dur-slow: 0.32s;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --slide-trans: transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out), filter var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+
+  /* ---- Element Plus ---- */
+  --el-color-primary: #4f9d7a;
+  --el-color-primary-light-3: #7fbfa0;
+  --el-color-primary-light-5: #a8d6bf;
+  --el-color-primary-light-7: #c5f09b;
+  --el-color-primary-light-8: #ddf3c9;
+  --el-color-primary-light-9: #f2f8ee;
+  --el-color-primary-dark-2: #3a7d60;
+  --el-bg-color: #ffffff;
+  --el-bg-color-overlay: #ffffff;
+  --el-text-color-primary: #14332b;
+  --el-text-color-regular: #2a4a3f;
+  --el-border-color: #e2eee4;
+  --el-border-color-light: #eef6e9;
+  --el-fill-color-blank: #ffffff;
+  --el-border-radius-base: 2px;
 }
 
-/* semantic color variables for this project */
+/* ===== 首页（落地页）：草木青（与 :root 默认同一套） =====
+   首页不带 data-ws，所以用 html:not([data-ws]) 选中它。
+   刻意做成独立覆盖块而不是改 :root 里那些散落的令牌 ——
+   那些令牌分散在三十行、一百二十七行、一百二十九行等多处，
+   逐条替换极易漏掉一两个，而漏掉的那一个不会报错、只会颜色不对。
+
+   这块曾经跟着四个工作台一起被改成蓝色（#2b79b6），现改回原来的
+   草木青：取值与 :root 逐条对齐，只差 --card-grad 一处 —— 这里用
+   纯色半透（0.74），而不是 :root 里那条 158° 渐变，好让首页与另外
+   几个工作台保持同一种卡底材质（渐变已按需求去掉）。 */
+html:not([data-ws]) {
+  --accent: #4f9d7a;
+  --accent-hover: #3a7d60;
+  --accent-soft: #c5f09b;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(79, 157, 122, 0.12);
+  --accent-wash-2: rgba(79, 157, 122, 0.2);
+  --accent-line: rgba(79, 157, 122, 0.32);
+  --accent-glow: rgba(197, 240, 155, 0.5);
+  --glow: rgba(79, 157, 122, 0.2);
+  --shell-glow: rgba(79, 157, 122, 0.22);
+  --card-grad: rgba(236, 245, 233, 0.74);
+  --el-color-primary: #4f9d7a;
+  --el-color-primary-light-3: #7fbfa0;
+  --el-color-primary-light-5: #a8d6bf;
+  --el-color-primary-light-7: #c5f09b;
+  --el-color-primary-light-8: #ddf3c9;
+  --el-color-primary-light-9: #f2f8ee;
+  --el-color-primary-dark-2: #3a7d60;
+}
+
+/* 深色沿用 :root[data-theme='dark'] 那套「深林墨绿」：浅色下的草木青
+   在黑底上要换成高明度的春芽绿 #7fd4a0，否则压不住背景。
+   顺带修掉一处早就不一致的硬编码：WelcomeView 里深色 hero 的洗色
+   一直是按这个绿写的（rgba(127, 212, 160, 0.07)），改成绿之后才对得上。 */
+html:not([data-ws])[data-theme='dark'] {
+  --accent: #7fd4a0;
+  --accent-hover: #a3e0bb;
+  --accent-soft: #c5f09b;
+  --accent-ink: #0a1f16;
+  --accent-wash: rgba(127, 212, 160, 0.16);
+  --accent-wash-2: rgba(127, 212, 160, 0.22);
+  --accent-line: rgba(127, 212, 160, 0.36);
+  --accent-glow: rgba(197, 240, 155, 0.28);
+  --glow: rgba(127, 212, 160, 0.22);
+  --shell-glow: rgba(127, 212, 160, 0.1);
+  --card-grad: rgba(22, 28, 26, 0.74);
+  --el-color-primary: #7fd4a0;
+  --el-color-primary-light-3: #a3e0bb;
+  --el-color-primary-light-5: #1b211f;
+  --el-color-primary-light-7: #171c1a;
+  --el-color-primary-light-8: #141917;
+  --el-color-primary-light-9: #121615;
+  --el-color-primary-dark-2: #5fc78c;
+}
+
+/* =====================================================================
+   深色（深林墨绿）
+   ===================================================================== */
+[data-theme='dark'] {
+  /* ---- 画布与表面 ----
+     四级中性明度阶梯。保留一丝色相而不是纯 #000：纯黑会让所有
+     深色层挤在一起，且边缘出现台阶感。 */
+  --canvas: #0a0c0b;
+  --canvas-2: #101312;
+  --surface: #101312;
+  --surface-2: #161a18;
+  --surface-3: #1d2220;
+  --surface-glass: rgba(16, 19, 18, 0.72);
+  --hairline: #232927;
+  --hairline-strong: #333b38;
+  --chip: #161a18;
+
+  /* ---- 文字 ----
+     去掉原来的绿白（#eaf6ec）改近中性：绿味文字压在近黑底上会显脏青。 */
+  --ink: #eef2f0;
+  --body: #c2cbc8;
+  --body-muted: #8a9491;
+  --ink-muted-80: #8a9491;
+  --ink-muted-48: #67716e;
+
+  /* ---- 左侧两栏：中性化，保持「侧边栏恒定、主区跟随工作台」 ---- */
+  --rail-bg: #070908;
+  --rail-bg2: #0d1110;
+  --rail-ink: #eef2f0;
+  --rail-text: #aeb8b4;
+  --rail-muted: #6f7975;
+  --rail-hairline: #1e2422;
+  --rail-hover: #141917;
+  --rail-active: #1b2220;
+
+  /* ---- 强调色：一个都不改 ----
+     它们本就是为深底挑的高明度色（#7fd4a0 等），原来之所以不显，
+     是因为背景和它们同色相（150–156° vs 84–190°）。挪到黑底上才会跳出来。 */
+  --accent: #7fd4a0;
+  --accent-hover: #a3e0bb;
+  --accent-ink: #0a1f16;
+  --accent-soft: #c5f09b;
+  --accent-wash: rgba(127, 212, 160, 0.16);
+  --accent-wash-2: rgba(127, 212, 160, 0.22);
+  --accent-line: rgba(127, 212, 160, 0.36);
+  --accent-glow: rgba(197, 240, 155, 0.28);
+  --accent-bright: #c5f09b;
+
+  --success: #5fd39a;
+  --warn: #e0b64a;
+  --warn-soft: #e6c463;
+  --warn-deep: #b8912f;
+  --warn-wash: rgba(224, 182, 74, 0.16);
+  --danger: #f87171;
+  --danger-wash: rgba(248, 113, 113, 0.12);
+  --danger-line: rgba(248, 113, 113, 0.45);
+  --on-danger: #2a0f0d;
+  --info: #5fbdd0;
+  --muted-wash: rgba(138, 148, 145, 0.10);
+
+  /* ---- 投影 ----
+     注意：黑底上黑色投影不可见，深色模式的层级由「中性明度阶梯 +
+     --hairline + 内高光」承担，这里保留只为不破坏浅色模式的取值。 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.45);
+
+  --grid-line: rgba(255, 255, 255, 0.03);
+  --glow: rgba(127, 212, 160, 0.22);
+  /* 黑底上高光必须收：原值 0.16 会让整片玻璃发灰、失去通透感 */
+  --sheen: rgba(255, 255, 255, 0.10);
+  --glass-panel: rgba(24, 29, 27, 0.72);
+  --glass-rail: rgba(13, 16, 15, 0.58);
+  --shell-glow: rgba(127, 212, 160, 0.10);
+  --card-grad: linear-gradient(158deg, rgba(22, 28, 26, 0.74) 0%, rgba(12, 15, 14, 0.54) 100%);
+  --inset-glass: linear-gradient(160deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  --inset-sheen: rgba(255, 255, 255, 0.08);
+  --glass-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.035) 100%);
+  --btn-glass: rgba(255, 255, 255, 0.05);
+  --btn-glass-hover: rgba(255, 255, 255, 0.10);
+  --hero-sheen: rgba(255, 255, 255, 0.10);
+  --shadow-inset: rgba(0, 0, 0, 0.35);
+
+  --el-color-primary: #7fd4a0;
+  --el-color-primary-light-3: #a3e0bb;
+  /* 这四个是 Element Plus 的 hover / disabled 填充底，原来沿用深绿，
+     在黑底上会重新引入绿味，一并中性化 */
+  --el-color-primary-light-5: #1b211f;
+  --el-color-primary-light-7: #171c1a;
+  --el-color-primary-light-8: #141917;
+  --el-color-primary-light-9: #121615;
+  --el-color-primary-dark-2: #5fc78c;
+  --el-bg-color: #101312;
+  --el-bg-color-overlay: #161a18;
+  --el-text-color-primary: #eef2f0;
+  --el-text-color-regular: #c2cbc8;
+  --el-border-color: #232927;
+  --el-border-color-light: #161a18;
+  --el-fill-color-blank: #101312;
+}
+
+/* ---- 兼容旧变量名 ---- */
 :root {
-  --color-background: var(--vt-c-white);
-  --color-background-soft: var(--vt-c-white-soft);
-  --color-background-mute: var(--vt-c-white-mute);
-
-  --color-border: var(--vt-c-divider-light-2);
-  --color-border-hover: var(--vt-c-divider-light-1);
-
-  --color-heading: var(--vt-c-text-light-1);
-  --color-text: var(--vt-c-text-light-1);
-
-  --section-gap: 160px;
+  --primary: var(--accent);
+  --primary-focus: var(--accent-hover);
+  --primary-on-dark: var(--accent-soft);
+  --on-primary: var(--accent-ink);
+  --on-dark: #eef2f0;
+  --body-on-dark: #c2cbc8;
+  --black: var(--rail-bg);
+  --canvas-parchment: var(--canvas-2);
+  --surface-pearl: var(--surface);
+  --tile-1: var(--surface);
+  --tile-2: var(--surface-2);
+  --tile-3: var(--surface-2);
+  --divider-soft: var(--hairline);
+  --accent-cyan: var(--info);
+  --accent-violet: var(--accent);
+  --accent-blue: var(--info);
+  --accent-green: var(--success);
+  --accent-amber: var(--warn);
+  --accent-pink: var(--danger);
+  --accent-orange: var(--warn);
+  --grad-accent: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  --grass: var(--accent);
+  --grass-bright: var(--accent);
+  --grass-deep: var(--accent-hover);
+  --mist: var(--canvas);
+  --mist-2: var(--canvas-2);
+  --forest-ink: var(--rail-bg);
+  --forest-night: var(--rail-bg2);
+  --forest-deep: var(--rail-bg);
+  --forest-soft: var(--rail-bg2);
+  --sidebar-bg: var(--rail-bg);
+  --sidebar-bg-2: var(--rail-bg2);
+  --sidebar-ink: var(--rail-ink);
+  --sidebar-text: var(--rail-text);
+  --sidebar-muted: var(--rail-muted);
+  --sidebar-hairline: var(--rail-hairline);
+  --sidebar-hover: var(--rail-hover);
+  --brand: var(--accent);
+  --brand-2: var(--accent-hover);
+  --magenta: var(--danger);
+  --page-accent: var(--accent);
+  --page-accent-strong: var(--accent-hover);
+  --page-accent-soft: var(--accent-soft);
+  --page-accent-wash: var(--accent-wash);
+  --page-accent-wash-strong: var(--accent-wash);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: var(--vt-c-black);
-    --color-background-soft: var(--vt-c-black-soft);
-    --color-background-mute: var(--vt-c-black-mute);
-
-    --color-border: var(--vt-c-divider-dark-2);
-    --color-border-hover: var(--vt-c-divider-dark-1);
-
-    --color-heading: var(--vt-c-text-dark-1);
-    --color-text: var(--vt-c-text-dark-2);
-  }
-}
-
+/* =====================================================================
+   基础重置
+   ===================================================================== */
 *,
 *::before,
 *::after {
@@ -58,29 +387,944 @@
   font-weight: normal;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   min-height: 100vh;
-  color: var(--color-text);
-  background: var(--color-background);
-  transition:
-    color 0.5s,
-    background-color 0.5s;
-  line-height: 1.6;
-  font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Fira Sans',
-    'Droid Sans',
-    'Helvetica Neue',
-    sans-serif;
-  font-size: 15px;
-  text-rendering: optimizeLegibility;
+  color: var(--ink);
+  background-color: var(--canvas);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.011em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.25s var(--ease-out), color 0.25s var(--ease-out);
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+}
+
+a {
+  color: var(--accent-hover);
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* =====================================================================
+   排版
+   ===================================================================== */
+.hero-display {
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1.03;
+  letter-spacing: -0.04em;
+}
+.display-lg {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+.display-md {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+.lead {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.lead-airy {
+  font-family: var(--font-body);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.tagline {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.body-strong {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.body-copy {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+.caption {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+.caption-strong {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.fine-print {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.tech-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--body-muted);
+}
+.tech-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.tech-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.tech-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--body-muted);
+}
+.tech-section::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+/* =====================================================================
+   表面
+   ===================================================================== */
+.tile-light {
+  background: var(--surface);
+  color: var(--ink);
+}
+.tile-parchment {
+  background: var(--canvas-2);
+  color: var(--ink);
+}
+.tile-dark {
+  background: var(--rail-bg);
+  color: var(--rail-ink);
+}
+.tile-dark-2 {
+  background: var(--rail-bg2);
+  color: var(--rail-ink);
+}
+.tile-dark-3 {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.container-wide {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+.container-narrow {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.product-shadow {
+  box-shadow: var(--product-shadow);
+}
+
+.text-gradient {
+  color: var(--ink);
+}
+
+.btn-gradient {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+  font-weight: 600;
+  transition: var(--slide-trans);
+}
+.btn-gradient:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.btn-gradient:active {
+  transform: translateY(1px);
+}
+
+.glass {
+  background: var(--surface-glass);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+}
+
+/* =====================================================================
+   工作台排版层（覆盖各视图 scoped 样式）
+   ===================================================================== */
+body .page-title,
+body .card-title,
+body .avatar-dialog-title {
+  font-weight: 600 !important;
+  letter-spacing: var(--track-tight) !important;
+  color: var(--ink) !important;
+}
+body .page-title {
+  font-size: 20px !important;
+  line-height: 1.25 !important;
+}
+body .card-title {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: var(--track-label) !important;
+  text-transform: uppercase !important;
+  line-height: 1.3 !important;
+  color: var(--body-muted) !important;
+}
+
+body .page-subtitle {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: var(--track-eyebrow) !important;
+  color: var(--body-muted) !important;
+}
+body .card-tag,
+body .card-more {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: var(--track-eyebrow) !important;
+  text-transform: uppercase !important;
+  color: var(--body-muted) !important;
+}
+
+body .kpi-value {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700 !important;
+  letter-spacing: -0.04em !important;
+  color: var(--ink) !important;
+}
+body .kpi-label {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: var(--track-label) !important;
+  text-transform: uppercase !important;
+  color: var(--body-muted) !important;
+}
+body .kpi-suffix {
+  font-family: var(--font-mono) !important;
+}
+body .nav-group-label {
+  font-family: var(--font-mono) !important;
+  letter-spacing: var(--track-label) !important;
+  text-transform: uppercase !important;
+}
+body .cell-muted,
+body .cell-badge {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 嵌套视图自带页头在壳里隐藏 */
+body .workspace-main .page-head,
+body .workspace-main .page-header {
+  display: none !important;
+}
+
+/* 卡片：28px 圆角 + 毛玻璃分隔 */
+body .card,
+body .kpi-card {
+  position: relative;
+  border-radius: var(--rad-card) !important;
+  background: var(--card-grad) !important;
+  border: 1px solid var(--hairline) !important;
+  /* 柔光玻璃：清晰的 1px 顶边给出厚度，再叠一道向下柔和衰减的亮雾。
+     这是「柔光玻璃」区别于「磨砂玻璃」的关键 —— 边缘不是硬线，而是渐隐的光。 */
+  box-shadow: inset 0 1px 0 var(--sheen), inset 0 14px 28px -22px var(--sheen) !important;
+  backdrop-filter: blur(36px) saturate(170%);
+  -webkit-backdrop-filter: blur(36px) saturate(170%);
+  padding: 22px !important;
+  transition: var(--slide-trans);
+}
+body .card::before,
+body .kpi-card::before {
+  display: none !important;
+}
+body .card:hover,
+body .kpi-card:hover {
+  /* 放开上浮：原来这里是 transform: none !important（上一版设计遗留），
+     卡片悬停只换边框色，材质升级后仍然显得「卡」。
+     按下反馈用 .press-* 且带 !important，优先级高于此处的 hover。 */
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-lg), 0 0 0 4px var(--accent-wash) !important;
+  border-color: var(--accent-line) !important;
+}
+
+/* =====================================================================
+   一级卡（hero）：KPI 条 + 主图表卡 + 岗位选择卡
+   三道加强：斜向顶部高光 / 更强毛玻璃 / 更宽的悬停光晕
+   令牌同样只有两处定义，高光是白色叠加，自动继承卡片当前色。
+   ===================================================================== */
+
+/* 斜向顶部高光叠加，与卡片渐变的 158deg 同向，把渐变「顶」出来。
+   z-index: -1 是必须的 —— 否则会画在卡片内容之上把文字洗白；
+   .card 上的 backdrop-filter 已创建层叠上下文，负 z-index 不会外溢。 */
+body .card-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(158deg, var(--hero-sheen) 0%, transparent 55%);
+}
+
+/* 更强的毛玻璃：一级卡明显「更厚」 */
+body .card-hero {
+  backdrop-filter: blur(44px) saturate(175%);
+  -webkit-backdrop-filter: blur(44px) saturate(175%);
+}
+
+/* 悬停光晕更宽 */
+body .card-hero:hover {
+  box-shadow: var(--shadow-lg), 0 0 0 6px var(--accent-wash) !important;
+}
+
+/* =====================================================================
+   纯展示卡：KPI 条 + 四张图表卡
+   悬停只加光晕、不上浮 —— 它们是数据展示面，悬停时用户在看数据与 tooltip，
+   整块抬起反而干扰，也会误导「这整块可以点」。
+   可点性由更宽的光晕 + 图表区的手型光标表达。
+
+   必须放在 body .card:hover 之后：两者特异性相同（0,2,1）且都带 !important，
+   靠源码先后决定胜负。
+   顺带修掉「悬停任意 KPI 格子、整条 KPI 条被抬起」的问题 —— 整条不再响应 hover。
+   ===================================================================== */
+body .card-static:hover {
+  transform: none !important;
+}
+
+/* =====================================================================
+   三列等宽卡片网格：分散布局 + 毛玻璃分隔
+   ===================================================================== */
+.split-2-1 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  padding: 20px 24px 32px;
+  align-items: start;
+}
+
+/* 溶解包裹层，让内部卡片直接成为网格项 */
+.split-main,
+.split-aside {
+  display: contents;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+.span-3 {
+  grid-column: span 3;
+}
+
+/* 网格内的卡片：靠 gap 分隔，不用 margin */
+body .split-2-1 .card,
+body .split-2-1 .kpi-card {
+  margin: 0 !important;
+}
+
+.workspace-main .dashboard,
+.workspace-main .interview-page,
+.workspace-main .resume-page,
+.workspace-main .question-bank,
+.workspace-main .profile-page {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  background: transparent !important;
+  grid-column: span 2;
+}
+
+@media (max-width: 900px) {
+  .workspace-main .dashboard,
+  .workspace-main .interview-page,
+  .workspace-main .resume-page,
+  .workspace-main .question-bank,
+  .workspace-main .profile-page {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 1280px) {
+  .split-2-1 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .span-3 {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 900px) {
+  .split-2-1 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .span-2,
+  .span-3 {
+    grid-column: span 1;
+  }
+}
+
+/* =====================================================================
+   悬停
+   ===================================================================== */
+body .el-card {
+  transition: var(--slide-trans);
+}
+body .el-card:hover {
+  border-color: var(--accent-soft) !important;
+}
+
+.hover-slide-x {
+  transition: transform 0.14s var(--ease-out), background-color 0.14s var(--ease-out);
+}
+.hover-slide-x:hover {
+  transform: translateX(2px);
+}
+
+.hover-bar {
+  position: relative;
+}
+.hover-bar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1px;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.2s var(--ease-out);
+}
+.hover-bar:hover::after {
+  transform: scaleX(1);
+}
+
+.hover-bar-y {
+  position: relative;
+}
+.hover-bar-y::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: center top;
+  transition: transform 0.18s var(--ease-out);
+}
+.hover-bar-y:hover::before {
+  transform: scaleY(1);
+}
+
+.hover-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.hover-sheen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.4s var(--ease-out);
+  pointer-events: none;
+}
+.hover-sheen:hover::before {
+  left: 135%;
+}
+
+/* =====================================================================
+   滚动条
+   ===================================================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--body-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =====================================================================
+   交互原语：按下反馈 + 键盘焦点环
+   放在全局而非各组件内 —— 这是跨组件的交互语言，集中一处便于统一调参，
+   组件里只需挂对应类名。
+
+   为什么用 !important：按下时元素同时处于 :hover 态，
+   而各组件样式在 base.css 之后注入，不加 !important 按下会被 hover 覆盖。
+   ===================================================================== */
+.press-sm:active,
+.press-md:active,
+.press-lg:active {
+  transition-duration: var(--dur-fast) !important;
+}
+
+/* 小图标按钮（<=44px） */
+.press-sm:active {
+  transform: translateY(1px) scale(0.94) !important;
+}
+
+/* 宽按钮 / 链接 / chip */
+.press-md:active {
+  transform: translateY(1px) scale(0.98) !important;
+}
+
+/* 卡片 / 大块 */
+.press-lg:active {
+  transform: translateY(1px) scale(0.995) !important;
+}
+
+/* 表格行不能缩放（会与相邻行错位），改用底色加重 + 左侧强调条 */
+.press-row:active {
+  background: var(--accent-wash) !important;
+}
+.press-row:active td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* 键盘焦点环：outline 不占布局，也不会被 overflow 裁掉 */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 表格行 / 贴边元素：内缩，否则会被容器裁掉 */
+.focus-ring-inset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* =====================================================================
+   跑马灯原语：任意元素外圈跑一道光带
+   锥形渐变 + 遮罩挖空做 1.5-2px 边框。矩形不能用「旋转元素」跑光
+   （一转形状就歪），必须动渐变角度；CSS 变量默认不能被 animation 插值，
+   所以要用 @property 把 --flow-ang 声明成 <angle>。
+   ===================================================================== */
+@property --flow-ang {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.flow-border::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--flow-ang),
+    transparent 0deg,
+    transparent 200deg,
+    var(--accent) 268deg,
+    var(--accent-soft) 330deg,
+    var(--accent-soft) 352deg,
+    transparent 358deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: flow-run 3.2s linear infinite;
+}
+
+@keyframes flow-run {
+  to {
+    --flow-ang: 360deg;
+  }
+}
+
+/* =====================================================================
+   工作台主题色
+   面试 = 草木青（:root 默认值，无需覆盖）
+   数据 = 冷青      个人 = 苔绿
+   三色同属绿系，冷暖递进：数据最冷（偏青）→ 面试居中（蓝绿）→ 个人最暖（偏黄绿）。
+
+   标记挂在 <html data-ws="..."> 上，与 data-theme 同一层 ——
+   chartTheme.js 是从 documentElement 读 CSS 变量的，令牌必须覆盖在
+   html 层才能让四张图跟着变色；挂在 .shell 上图表读不到。
+
+   刻意不覆盖 --glass-panel / --glass-rail：这两个令牌只被侧边栏使用，
+   不覆盖即保持中性绿，实现「侧边栏恒定、主区内容跟随」。
+
+   特异性说明：html[data-ws=x] 是 (0,1,1)，会压过 :root 的 (0,1,0)，
+   所以深色模式必须再叠一层 [data-theme='dark'] 提到 (0,2,1) 才能生效。
+   ===================================================================== */
+
+/* ---------- 数据工作台：冷青 ---------- */
+
+
+
+
+/* ---------- 个人中心：苔绿 ---------- */
+
+
+
+
+/* ---------- 面试工作台：沉稳绿 ----------
+   原草木青 #4F9D7A 是 H152/S33/L46，偏灰的「鼠尾草绿」；
+   改为 #2E7D5B（H154/S46/L34）—— 色相几乎不变，提饱和 + 压明度，
+   从「发灰」变成「沉稳的翡翠绿」。
+   --accent-soft 保留春芽浅绿 #C5F09B，维持品牌里「深绿 + 春芽」的经典配对。 */
+
+
+
+
+/* ---------- 管理后台：冷青（与数据工作台同色）----------
+   为什么管理后台也要挂在 html 层、而不是挂在它自己的 .admin-shell 上：
+   弹窗（ElMessage / ElMessageBox / ElDialog）是 teleport 到 <body> 的，
+   挂在 .admin-shell 上它们就够不到了 —— 后台里弹出来的提示会退回
+   :root 的草木青，与卡片对不上色。挂到 html 层后，
+   浮层与页面取的是同一份令牌，这也是另外三个工作台的做法。 */
+/* ===== 三个工作台：加深主色 + 淡色卡底 =====
+   每个界面就两个色，分工是：
+     · 卡底（--card-grad）= 那个淡色（面试 #e6f4ff / 数据 #fff1f0 / 个人 #feffe6），
+       纯色半透、不做任何颜色过渡。
+     · 主色（--accent 及其派生令牌）= 同一个色的【同色相加深版】，
+       给文字/边框/光环和 ECharts 用。
+   为什么主色不能直接用那个淡色：它们在白底上只有 1.02~1.12:1 的对比度。
+   实测后果是 color 失效（11 处，文字看不见）、border-color 失效（22 处，边框消失）、
+   ECharts 线条近白（图表空白）。底色不需要对比度，所以那一份可以照原样用。
+   深色主题反过来：主色用淡色本身（压在深底上 16:1 以上），卡底把淡色整体 × 0.22 压暗。
+   管理后台不套这一套 —— 见下面的石墨灰 + 金。 */
+html[data-ws='interview'] {
+  --accent: #2b79b6;
+  --accent-hover: #226192;
+  --accent-soft: #a0c3de;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(43, 121, 182, 0.12);
+  --accent-wash-2: rgba(43, 121, 182, 0.2);
+  --accent-line: rgba(43, 121, 182, 0.34);
+  --accent-glow: rgba(160, 195, 222, 0.5);
+  --glow: rgba(43, 121, 182, 0.22);
+  --shell-glow: rgba(43, 121, 182, 0.22);
+  --card-grad: rgba(230, 244, 255, 0.74);
+  --el-color-primary: #2b79b6;
+  --el-color-primary-light-3: #6ba1cc;
+  --el-color-primary-light-5: #95bcdb;
+  --el-color-primary-light-7: #bfd7e9;
+  --el-color-primary-light-8: #d5e4f0;
+  --el-color-primary-light-9: #eaf2f8;
+  --el-color-primary-dark-2: #226192;
+}
+
+html[data-ws='interview'][data-theme='dark'] {
+  --accent: #e6f4ff;
+  --accent-hover: #eef7ff;
+  --accent-soft: #eef8ff;
+  --accent-ink: #1c1d1f;
+  --accent-wash: rgba(230, 244, 255, 0.16);
+  --accent-wash-2: rgba(230, 244, 255, 0.22);
+  --accent-line: rgba(230, 244, 255, 0.36);
+  --accent-glow: rgba(238, 248, 255, 0.28);
+  --glow: rgba(230, 244, 255, 0.22);
+  --shell-glow: rgba(230, 244, 255, 0.1);
+  --card-grad: rgba(51, 54, 56, 0.74);
+  --el-color-primary: #e6f4ff;
+  --el-color-primary-light-3: #eef7ff;
+  --el-color-primary-light-5: #333638;
+  --el-color-primary-light-7: #292c2e;
+  --el-color-primary-light-8: #232526;
+  --el-color-primary-light-9: #1e2021;
+  --el-color-primary-dark-2: #cad7e0;
+}
+
+html[data-ws='data'] {
+  --accent: #d14339;
+  --accent-hover: #a8362e;
+  --accent-soft: #eaaaa6;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(209, 67, 57, 0.12);
+  --accent-wash-2: rgba(209, 67, 57, 0.2);
+  --accent-line: rgba(209, 67, 57, 0.34);
+  --accent-glow: rgba(234, 170, 166, 0.5);
+  --glow: rgba(209, 67, 57, 0.22);
+  --shell-glow: rgba(209, 67, 57, 0.22);
+  --card-grad: rgba(255, 241, 240, 0.74);
+  --el-color-primary: #d14339;
+  --el-color-primary-light-3: #df7b74;
+  --el-color-primary-light-5: #e8a19c;
+  --el-color-primary-light-7: #f1c7c4;
+  --el-color-primary-light-8: #f6d9d7;
+  --el-color-primary-light-9: #faeceb;
+  --el-color-primary-dark-2: #a7362e;
+}
+
+html[data-ws='data'][data-theme='dark'] {
+  --accent: #fff1f0;
+  --accent-hover: #fff4f3;
+  --accent-soft: #fff6f5;
+  --accent-ink: #1f1d1d;
+  --accent-wash: rgba(255, 241, 240, 0.16);
+  --accent-wash-2: rgba(255, 241, 240, 0.22);
+  --accent-line: rgba(255, 241, 240, 0.36);
+  --accent-glow: rgba(255, 246, 245, 0.28);
+  --glow: rgba(255, 241, 240, 0.22);
+  --shell-glow: rgba(255, 241, 240, 0.1);
+  --card-grad: rgba(56, 53, 53, 0.74);
+  --el-color-primary: #fff1f0;
+  --el-color-primary-light-3: #fff5f5;
+  --el-color-primary-light-5: #383535;
+  --el-color-primary-light-7: #2e2b2b;
+  --el-color-primary-light-8: #262424;
+  --el-color-primary-light-9: #211f1f;
+  --el-color-primary-dark-2: #e0d4d3;
+}
+
+html[data-ws='me'] {
+  --accent: #75781c;
+  --accent-hover: #5e6016;
+  --accent-soft: #c1c299;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(117, 120, 28, 0.12);
+  --accent-wash-2: rgba(117, 120, 28, 0.2);
+  --accent-line: rgba(117, 120, 28, 0.34);
+  --accent-glow: rgba(193, 194, 153, 0.5);
+  --glow: rgba(117, 120, 28, 0.22);
+  --shell-glow: rgba(117, 120, 28, 0.22);
+  --card-grad: rgba(254, 255, 230, 0.74);
+  --el-color-primary: #75781c;
+  --el-color-primary-light-3: #9ea160;
+  --el-color-primary-light-5: #babc8e;
+  --el-color-primary-light-7: #d6d7bb;
+  --el-color-primary-light-8: #e3e4d2;
+  --el-color-primary-light-9: #f1f2e8;
+  --el-color-primary-dark-2: #5e6016;
+}
+
+html[data-ws='me'][data-theme='dark'] {
+  --accent: #feffe6;
+  --accent-hover: #feffe9;
+  --accent-soft: #feffee;
+  --accent-ink: #1e1f1c;
+  --accent-wash: rgba(254, 255, 230, 0.16);
+  --accent-wash-2: rgba(254, 255, 230, 0.22);
+  --accent-line: rgba(254, 255, 230, 0.36);
+  --accent-glow: rgba(254, 255, 238, 0.28);
+  --glow: rgba(254, 255, 230, 0.22);
+  --shell-glow: rgba(254, 255, 230, 0.1);
+  --card-grad: rgba(56, 56, 51, 0.74);
+  --el-color-primary: #feffe6;
+  --el-color-primary-light-3: #feffee;
+  --el-color-primary-light-5: #383833;
+  --el-color-primary-light-7: #2e2e29;
+  --el-color-primary-light-8: #262623;
+  --el-color-primary-light-9: #21211e;
+  --el-color-primary-dark-2: #e0e0ca;
+}
+
+html[data-ws='admin'] {
+  /* 石墨灰 + 金色点缀。
+     为什么金不当主色：它是低饱和暖黄，白字压上去对比度不足，
+     大面积铺开（按钮、选中条、图表）会显得脏 —— 细边线和光环才是它合适的位置。
+     所以主色是石墨灰，金色只落在 --accent-line（全项目 30+ 处在用的边框色）
+     与 --accent-glow / --glow（聚焦光环、选中项外发光）这三个令牌上。
+     另：--card-grad 是中性灰、不带色相，所以在任何页面底色上都不脏。 */
+  --accent: #3f4753;
+  --accent-hover: #2f3540;
+  --accent-soft: #a9acb2;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(63, 71, 83, 0.12);
+  --accent-wash-2: rgba(63, 71, 83, 0.2);
+  --accent-line: rgba(200, 164, 92, 0.34);
+  --accent-glow: rgba(230, 214, 182, 0.5);
+  --glow: rgba(200, 164, 92, 0.22);
+  --shell-glow: rgba(63, 71, 83, 0.22);
+  --card-grad: linear-gradient(158deg, rgba(236, 237, 238, 0.74) 0%, rgba(213, 215, 217, 0.54) 100%);
+  --el-color-primary: #3f4753;
+  --el-color-primary-light-3: #797e87;
+  --el-color-primary-light-5: #9fa3a9;
+  --el-color-primary-light-7: #c5c8cb;
+  --el-color-primary-light-8: #d9dadd;
+  --el-color-primary-light-9: #ecedee;
+  --el-color-primary-dark-2: #323942;
+}
+
+html[data-ws='admin'][data-theme='dark'] {
+  --accent: #b9c2cf;
+  --accent-hover: #d3dae3;
+  --accent-soft: #d0d6df;
+  --accent-ink: #161719;
+  --accent-wash: rgba(185, 194, 207, 0.16);
+  --accent-wash-2: rgba(185, 194, 207, 0.22);
+  --accent-line: rgba(216, 183, 111, 0.36);
+  --accent-glow: rgba(229, 207, 159, 0.28);
+  --glow: rgba(216, 183, 111, 0.22);
+  --shell-glow: rgba(185, 194, 207, 0.1);
+  /* 深石墨玻璃。同样是中性灰 —— 深色下若带上石墨的蓝色相会发脏 */
+  --card-grad: linear-gradient(158deg, rgba(29, 30, 32, 0.74) 0%, rgba(15, 16, 17, 0.54) 100%);
+  --el-color-primary: #b9c2cf;
+  --el-color-primary-light-3: #ced4dd;
+  --el-color-primary-light-5: #292b2e;
+  --el-color-primary-light-7: #212325;
+  --el-color-primary-light-8: #1c1d1f;
+  --el-color-primary-light-9: #18191b;
+  --el-color-primary-dark-2: #a3abb6;
+}
+
+/* =====================================================================
+   提示气泡（全局原语）
+   浏览器原生 title 提示在 Windows 上是淡黄底且无法改色，统一改用
+   data-tip + ::after 自绘。两种方位：
+     默认                 -> 出现在元素上方（普通按钮，文字自动换行居中）
+     data-tip-pos="right" -> 出现在元素右侧（图标条：它在屏幕左缘，右边才有空间）
+   两个方位特异性相同，靠源码先后决定胜负，所以「右侧」变体必须写在后面。
+   ===================================================================== */
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 20;
+  /* 左对齐而非居中：靠左的元素（如卡片内的按钮）用居中会让气泡向左溢出卡片 */
+  left: 0;
+  bottom: calc(100% + 10px);
+  max-width: 260px;
+  padding: 6px 11px;
+  border-radius: var(--rad-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 4px 14px var(--glow);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 右侧方位 */
+[data-tip-pos='right']::after {
+  left: calc(100% + 16px);
+  top: 50%;
+  bottom: auto;
+  max-width: none;
+  white-space: nowrap;
+  text-align: left;
+  transform: translateY(-50%) translateX(-5px);
+}
+
+[data-tip-pos='right']:hover::after,
+[data-tip-pos='right']:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* 下方方位 —— 供页面顶部附近的元素使用：上方没有空间，气泡会被视口裁掉。
+   水平上靠右对齐（right: 0）而不是继承默认的 left: 0 —— 这类元素通常贴近
+   视口右缘，从 left 开始向右展开会溢出。
+   三个方位特异性相同，靠源码先后决定胜负，所以必须写在最后。 */
+[data-tip-pos='bottom']::after {
+  left: auto;
+  right: 0;
+  top: calc(100% + 10px);
+  bottom: auto;
+  max-width: none;
+  white-space: nowrap;
+  transform: translateY(-5px);
+}
+
+[data-tip-pos='bottom']:hover::after,
+[data-tip-pos='bottom']:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }

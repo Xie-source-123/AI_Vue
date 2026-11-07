@@ -1,0 +1,208 @@
+/* ============================================================
+   管理后台共用样式
+   ============================================================
+   为什么不写成各组件自己的 scoped 样式：
+   五个模块页用的是同一套卡片、同一套 KPI 数字、同一套工具栏，
+   各写一遍的结果必然是它们慢慢长歪 —— 改了一处忘了另一处。
+   这里统一一份，由 AdminLayout 引入（后台是懒加载路由，只有进了后台才加载）。
+
+   另：后台的配色令牌【不在这里】，在 base.css 的 html[data-ws='admin'] 下。
+   原因是弹窗 teleport 到 <body>，挂在本组件上它们够不到。
+   ============================================================ */
+
+.a-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ===== 卡片 =====
+   材质用工作台那套 --card-grad 斜向渐变玻璃，而不是 --glass-strong。
+   两者的差别在浅色下最明显：--glass-strong 是单片白，--card-grad 带一层
+   从浅到深的斜向过渡，卡片因此有「浮起来」的厚度感。 */
+.a-card {
+  padding: 18px 20px;
+  border-radius: var(--rad-rail);
+  border: 1px solid var(--hairline);
+  background: var(--card-grad);
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  box-shadow: var(--shadow-md), inset 0 1px 0 var(--sheen);
+}
+
+.a-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.a-card-title {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink);
+}
+.a-card-sub {
+  font-size: 12px;
+  color: var(--body-muted);
+  margin-top: 3px;
+  line-height: 1.6;
+}
+
+/* ===== KPI 数字 ===== */
+.a-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 12px;
+}
+/* 材质与 .a-card 完全一致。
+   这里原来用的是纯色 --canvas —— 那是个疏漏：`.a-stat-grid` 是 .a-page 的
+   直接子元素、不落在任何卡片里，所以这几个方块是【顶层卡片】，
+   拿纯色底和旁边两张玻璃图表卡并排，一眼就能看出不是一套。
+   圆角刻意保留 12px 而不跟 .a-card 的 20px：方块比卡片小得多，
+   同样的圆角放在小元素上会显得过圆。 */
+.a-stat {
+  padding: 15px 17px;
+  border-radius: var(--rad-block);
+  border: 1px solid var(--hairline);
+  background: var(--card-grad);
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  box-shadow: var(--shadow-md), inset 0 1px 0 var(--sheen);
+}
+
+/* 方块落在卡片【内部】时（系统状态页的「数据存储」就是这种：.a-card 包着
+   .a-stat-grid），上面那套材质必须收掉。原因是 backdrop-filter 取的是它背后
+   已经合成好的画面：外层卡片已经 blur 过一层，内层再 blur 一次就是玻璃套玻璃，
+   结果会比平台概览的顶层方块明显更白更糊，两处反而对不上。
+   收掉之后的做法跟本文件里 `.a-card .el-table` 一致 —— 底色透明，让卡片自己的
+   材质透上来，只留一圈 hairline 描边把它框住。 */
+.a-card .a-stat {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+.a-stat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--body-muted);
+}
+.a-stat-value {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.a-stat-value small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--body-muted);
+  margin-left: 2px;
+}
+.a-stat-note {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--body-muted);
+}
+
+/* ===== 工具栏与空态 ===== */
+.a-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.a-spacer {
+  flex: 1;
+}
+.a-empty {
+  padding: 46px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--body-muted);
+  line-height: 1.8;
+}
+
+/* ===== 图表容器 ===== */
+.a-chart {
+  width: 100%;
+  height: 240px;
+}
+.a-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+/* ===== 状态点 ===== */
+.a-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--body-muted);
+}
+.a-dot.ok {
+  background: var(--success);
+}
+.a-dot.bad {
+  background: var(--danger);
+}
+.a-dot.warn {
+  background: var(--warn);
+}
+
+/* ===== 键值行（系统状态页用）===== */
+.a-kv {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 8px 14px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.a-kv dt {
+  color: var(--body-muted);
+}
+.a-kv dd {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  word-break: break-all;
+}
+
+/* ===== Element Plus 在深色下的表格微调 =====
+   注意这里【不能】写 :deep() —— 那是 Vue scoped 样式的语法，
+   在普通 CSS 文件里不是合法选择器，整条规则会被浏览器直接丢弃。
+   靠 .a-card 前缀限定作用范围就够了。
+   全局的 el-table 变量在 App.vue 里已按主题设过，这里只补后台特有的部分。 */
+.a-card .el-table {
+  background: transparent;
+  --el-table-border-color: var(--hairline);
+}
+.a-card .el-table th.el-table__cell {
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--body-muted);
+}
+.a-card .el-table td.el-table__cell {
+  font-size: 13px;
+}
+/* 当前登录的那一行（AdminUsers 用 row-class-name 给它挂上 u-row-me）：
+   铺一层极淡的强调色底，和行内那枚「当前登录」标签互相呼应。
+   写在全局这份里而不是组件 scoped 里，原因同上 —— <tr> 由 el-table
+   子组件渲染，scoped 属性落不到它身上。
+   权重 (0,4,1) 高于 el-table 自己的 tr:hover 规则，悬停时底色不会被顶掉。 */
+.a-card .el-table tr.u-row-me > td.el-table__cell {
+  background: var(--accent-wash);
+}
+.a-card .el-table__inner-wrapper::before {
+  display: none;
+}

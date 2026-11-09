@@ -1,5 +1,7 @@
 <template>
   <section class="card qbp">
+    <!-- 未作答时显示题库列表；进入答题后整块被答题页替换（不再用弹窗） -->
+    <template v-if="!answering">
     <!-- ===== 顶部：分组方式 + 题库横向标签（不再用下拉）===== -->
     <div class="qbp-head">
       <span class="tech-section">{{ mode === 'exam' ? '模拟考试' : '题库练习' }}</span>
@@ -32,6 +34,7 @@
       <div class="qbp-stat">
         筛选出 <b>{{ filtered.length }}</b> 题 · 分成 <b>{{ cards.length }}</b> 组
         <span class="qbp-tip">每组最多 20 题，点卡片进入作答</span>
+        <button v-if="hasActiveFilter" class="qbp-reset" @click="clearFilters">清空筛选</button>
       </div>
 
       <!-- 实时数据条：练习与考试的当前情况（数据来自本组件已加载的记录，不额外请求） -->
@@ -49,6 +52,13 @@
           模拟考试 <b>{{ records.exam.length }}</b> 次
         </span>
         <span class="qbp-live-item muted">实时</span>
+      </div>
+
+      <!-- 组合为空时给提示：难度和知识点在你的题库里是强关联的，
+           随手组合很容易一个都命中不了 -->
+      <div v-if="!filtered.length" class="qbp-empty">
+        当前筛选组合下没有题目 —— 换个难度或知识点，或者
+        <button class="qbp-reset" @click="clearFilters">清空筛选</button>
       </div>
 
       <!-- ===== 按知识点分组的卡片：外围进度环 + 卡片内百分比 ===== -->
@@ -176,40 +186,59 @@
       </template>
     </el-dialog>
 
-    <!-- ===== 作答面板 ===== -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="activeCard?.name || ''"
-      width="820px"
-      :close-on-click-modal="false"
-      append-to-body
-      @closed="onDialogClosed"
-    >
-      <div v-if="activeCard" class="qp-body">
-        <div v-if="phase === 'graded'" class="qp-total">
-          总分 <b>{{ total }}</b> / {{ max }}（{{ activeCard.questions.length }} 题，平均
-          {{ (total / Math.max(1, activeCard.questions.length)).toFixed(1) }} 分）
-        </div>
+    </template>
 
-        <div v-for="(q, i) in activeCard.questions" :key="q.id" class="qp-item">
-          <div class="qp-item-head">
-            <span class="qp-no">{{ i + 1 }}</span>
-            <span class="qp-diff">{{ diffLabel(q.difficulty) }}</span>
-            <span v-if="q.category" class="qp-cat">{{ q.category }}</span>
-            <span v-if="scores[i] != null" class="qp-score" :class="{ low: scores[i] < 6 }">
-              {{ scores[i] }} / 10
+    <!-- ===== 答题页（页内排版，非弹窗） ===== -->
+    <template v-else>
+      <header class="qp-bar">
+        <button class="qp-exit" @click="closeAnswering">‹ 退出答题</button>
+        <span class="qp-title">{{ activeCard?.bank }} · {{ activeCard?.name }}</span>
+        <div class="qp-bar-right">
+          <span class="qp-timer">⏱ {{ elapsedText }}</span>
+          <el-button
+            v-if="phase !== 'graded'"
+            type="primary"
+            size="small"
+            :loading="grading"
+            @click="submitAll"
+          >
+            {{ mode === 'exam' ? '交卷' : '整组评分' }}
+          </el-button>
+          <span v-else class="qp-done-tip">已交卷</span>
+        </div>
+      </header>
+
+      <div v-if="phase === 'graded'" class="qp-total">
+        总分 <b>{{ total }}</b> / {{ max }}（{{ activeCard?.questions.length }} 题，平均
+        {{ (total / Math.max(1, activeCard?.questions.length || 1)).toFixed(1) }} 分）
+      </div>
+
+      <div class="qp-page">
+        <div
+          v-for="(q, i) in activeCard?.questions || []"
+          :key="q.id"
+          :ref="(el) => setItemEl(el, i)"
+          class="qp-card"
+        >
+          <div class="qp-card-head">
+            <span class="qp-tag">{{ diffLabel(q.difficulty) }}</span>
+            <span v-if="q.category" class="qp-tag light">{{ q.category }}</span>
+            <span class="qp-card-idx">{{ i + 1 }}</span>
+            <span v-if="scores[i] != null" class="qp-badge" :class="{ low: scores[i] < 6 }">
+              {{ scores[i] }} 分
             </span>
           </div>
+
           <p class="qp-q">{{ q.title }}</p>
+
           <el-input
             v-model="answers[i]"
             type="textarea"
-            :rows="2"
+            :rows="4"
             placeholder="写下你的回答"
             :disabled="phase === 'graded' || scoringOne === i"
           />
 
-          <!-- 练习模式：每题可以单独提交评分 -->
           <div v-if="mode === 'practice' && phase !== 'graded'" class="qp-actions">
             <el-button
               size="small"
@@ -231,29 +260,31 @@
         </div>
       </div>
 
-      <template #footer>
-        <span v-if="mode === 'practice'" class="qp-foot-tip">
-          已评分 {{ scoredCount }} / {{ activeCard?.questions.length ?? 0 }} 题
-        </span>
-        <el-button @click="dialogVisible = false">关闭</el-button>
-        <el-button
-          v-if="mode === 'exam' && phase !== 'graded'"
-          type="primary"
-          :loading="grading"
-          @click="submitAll"
-        >
-          交卷评分
-        </el-button>
-        <el-button v-if="mode === 'practice' && phase !== 'graded'" type="primary" @click="submitAll">
-          整组评分（未评的补上）
-        </el-button>
-      </template>
-    </el-dialog>
+      <!-- 左下答题卡：点数字跳到对应题目 -->
+      <div class="qp-sheet" :class="{ open: sheetOpen }">
+        <button class="qp-sheet-head" @click="sheetOpen = !sheetOpen">
+          答题卡
+          <span class="qp-sheet-count">{{ answeredCount }} / {{ activeCard?.questions.length || 0 }}</span>
+          <span class="qp-caret" :class="{ up: sheetOpen }">⌄</span>
+        </button>
+        <div v-if="sheetOpen" class="qp-sheet-body">
+          <button
+            v-for="(q, i) in activeCard?.questions || []"
+            :key="q.id"
+            class="qp-dot"
+            :class="{ done: (answers[i] || '').trim(), scored: scores[i] != null }"
+            @click="jumpTo(i)"
+          >
+            {{ i + 1 }}
+          </button>
+        </div>
+      </div>
+    </template>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   fetchBanksAPI,
@@ -283,7 +314,10 @@ const loading = ref(false)
 const error = ref('')
 const filters = reactive({ position: '', category: '', difficulty: '' })
 
-const dialogVisible = ref(false)
+/* 答题页状态（原来是 el-dialog 的 dialogVisible，现在改成页内切换） */
+const answering = ref(false)
+const sheetOpen = ref(false)
+const elapsed = ref(0)
 const activeCard = ref(null)
 const answers = ref([])
 const scores = ref([])
@@ -314,42 +348,70 @@ function countBy(fn) {
 /* 岗位分类 = 题库名称。
    现在每个题库代表一个岗位（题库按岗位命名），所以「选岗位」就是「选题库」；
    以后加了新题库，这一行会自动多出一个标签，不用改代码。 */
-const positionOptions = computed(() => {
-  const counts = new Map()
-  questions.value
-    .filter((q) => !filters.category || (q.category || '未分类') === filters.category)
-    .filter((q) => !filters.difficulty || diffLabel(q.difficulty) === filters.difficulty)
-    .forEach((q) => {
-      const k = q._bank || '未分类题库'
-      counts.set(k, (counts.get(k) || 0) + 1)
-    })
-  const names = new Set(banks.value.map((b) => b.name).filter(Boolean))
-  for (const k of counts.keys()) names.add(k)
-  return [...names].filter(Boolean).map((n) => ({ value: n, label: n, count: counts.get(n) || 0 }))
-})
+const allBankNames = computed(() => [
+  ...new Set(questions.value.map((q) => q._bank || '').filter(Boolean))
+])
+const allCategoryNames = computed(() => [
+  ...new Set(questions.value.map((q) => q.category || '未分类'))
+])
 
-const categoryOptions = computed(() => {
-  const m = new Map()
-  questions.value
-    .filter((q) => !filters.position || q._bank === filters.position)
-    .filter((q) => (!filters.difficulty || diffLabel(q.difficulty) === filters.difficulty))
-    .forEach((q) => {
-      const k = q.category || '未分类'
-      m.set(k, (m.get(k) || 0) + 1)
-    })
-  return [...m.entries()].map(([value, count]) => ({ value, label: value, count }))
-})
+const positionOptions = computed(() =>
+  allBankNames.value.map((n) => ({
+    value: n,
+    label: n,
+    count: questions.value.filter(
+      (q) =>
+        (q._bank || '') === n &&
+        (!filters.category || (q.category || '未分类') === filters.category) &&
+        (!filters.difficulty || diffLabel(q.difficulty) === filters.difficulty)
+    ).length
+  }))
+)
 
-const difficultyOptions = computed(() => {
-  const m = new Map()
-  questions.value
-    .filter((q) => !filters.position || q._bank === filters.position)
-    .filter((q) => (!filters.category || (q.category || '未分类') === filters.category))
-    .forEach((q) => {
-      const k = diffLabel(q.difficulty)
-      m.set(k, (m.get(k) || 0) + 1)
-    })
-  return DIFF_LIST.filter((d) => m.has(d)).map((d) => ({ value: d, label: d, count: m.get(d) }))
+const categoryOptions = computed(() =>
+  allCategoryNames.value.map((c) => ({
+    value: c,
+    label: c,
+    count: questions.value.filter(
+      (q) =>
+        (q.category || '未分类') === c &&
+        (!filters.position || q._bank === filters.position) &&
+        (!filters.difficulty || diffLabel(q.difficulty) === filters.difficulty)
+    ).length
+  }))
+)
+
+/* 难度固定显示三项（哪怕某项当前是 0 题），避免标签忽隐忽现 */
+const difficultyOptions = computed(() =>
+  DIFF_LIST.map((d) => ({
+    value: d,
+    label: d,
+    count: questions.value.filter(
+      (q) =>
+        diffLabel(q.difficulty) === d &&
+        (!filters.position || q._bank === filters.position) &&
+        (!filters.category || (q.category || '未分类') === filters.category)
+    ).length
+  }))
+)
+
+const hasActiveFilter = computed(
+  () => !!(filters.position || filters.category || filters.difficulty)
+)
+
+function clearFilters() {
+  filters.position = ''
+  filters.category = ''
+  filters.difficulty = ''
+}
+
+/* 换题库后，原先选中的知识点/岗位可能已不存在 —— 自动清掉，
+   否则会留下「筛选条件还在、标签却找不到」的僵尸状态。 */
+watch(allCategoryNames, (list) => {
+  if (filters.category && !list.includes(filters.category)) filters.category = ''
+})
+watch(allBankNames, (list) => {
+  if (filters.position && !list.includes(filters.position)) filters.position = ''
 })
 
 function shuffle(arr) {
@@ -674,8 +736,6 @@ function generateCustom() {
   })
 }
 
-const scoredCount = computed(() => scores.value.filter((s) => s != null).length)
-
 /**
  * 一次性把【所有题库】的题目拉下来并合并，每道题记上它属于哪个题库（_bank）。
  * 为什么不再按库单个加载：现在「岗位」这一行就是题库名称，
@@ -714,12 +774,63 @@ function openCard(c) {
   total.value = 0
   max.value = c.questions.length * 10
   scoringOne.value = -1
-  dialogVisible.value = true
+  itemEls.length = 0
+  sheetOpen.value = false
+  answering.value = true
+  startTimer()
 }
 
-function onDialogClosed() {
+/** 退出答题：停止计时并把状态清干净，回到题库列表 */
+function closeAnswering() {
+  stopTimer()
+  answering.value = false
+  sheetOpen.value = false
   activeCard.value = null
 }
+
+/* ===== 计时（从进入答题开始累计，交卷后停住） ===== */
+let timerId = null
+
+function startTimer() {
+  stopTimer()
+  elapsed.value = 0
+  timerId = setInterval(() => {
+    elapsed.value += 1
+  }, 1000)
+}
+
+function stopTimer() {
+  if (timerId) {
+    clearInterval(timerId)
+    timerId = null
+  }
+}
+
+onBeforeUnmount(stopTimer)
+
+const elapsedText = computed(() => {
+  const s = elapsed.value
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  const p = (n) => String(n).padStart(2, '0')
+  return h > 0 ? `${h}:${p(m)}:${p(ss)}` : `${p(m)}:${p(ss)}`
+})
+
+/* 答题卡：记录每题 DOM，点数字平滑滚动过去 */
+const itemEls = []
+
+function setItemEl(el, i) {
+  if (el) itemEls[i] = el
+}
+
+function jumpTo(i) {
+  const el = itemEls[i]
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  sheetOpen.value = false
+}
+
+const answeredCount = computed(() => answers.value.filter((a) => (a || '').trim()).length)
 
 /** 单题评分（练习模式） */
 async function scoreOne(i) {
@@ -875,6 +986,18 @@ onMounted(async () => {
 }
 .qbp-stat b {
   color: var(--accent);
+}
+.qbp-reset {
+  margin-left: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.qbp-reset:hover {
+  text-decoration: underline;
 }
 .qbp-tip {
   margin-left: 10px;
@@ -1057,66 +1180,132 @@ onMounted(async () => {
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
-.qp-body {
-  max-height: 62vh;
-  overflow-y: auto;
-  padding-right: 6px;
-}
-.qp-item {
-  padding: 12px 0;
+/* ============================================================
+   答题页（页内排版，参考答题站的样式）
+   ============================================================ */
+.qp-bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 4px 12px;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--hairline);
+  background: var(--card-grad);
+  backdrop-filter: blur(18px);
 }
-.qp-item-head {
+.qp-exit {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  padding: 4px 6px;
+  font-size: 13px;
+  color: var(--body-muted);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.qp-exit:hover {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+.qp-title {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qp-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.qp-timer {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--body);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.qp-done-tip {
+  font-size: 12.5px;
+  color: var(--accent);
+}
+.qp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 70px;
+}
+.qp-card {
+  padding: 18px 20px;
+  border-radius: var(--rad-block);
+  border: 1px solid var(--hairline);
+  background: var(--card-grad);
+  scroll-margin-top: 70px;
+}
+.qp-card-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
-.qp-no {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.qp-tag {
+  padding: 1px 8px;
+  border-radius: 5px;
   font-size: 11.5px;
-  font-weight: 600;
-  color: var(--accent-ink);
-  background: var(--accent);
+  background: var(--accent-wash-2);
+  color: var(--accent);
+  white-space: nowrap;
 }
-.qp-diff,
-.qp-cat {
-  font-size: 11.5px;
+.qp-tag.light {
+  background: var(--canvas-2);
   color: var(--body-muted);
 }
-.qp-score {
+.qp-card-idx {
+  font-size: 12px;
+  color: var(--body-muted);
+  font-variant-numeric: tabular-nums;
+}
+.qp-badge {
   margin-left: auto;
-  font-size: 13px;
+  padding: 1px 9px;
+  border-radius: var(--rad-pill);
+  font-size: 11.5px;
   font-weight: 600;
+  background: var(--accent-wash-2);
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
-.qp-score.low {
+.qp-badge.low {
+  background: var(--danger-wash);
   color: var(--danger);
 }
 .qp-q {
-  margin: 0 0 8px;
-  font-size: 14px;
+  margin: 0 0 10px;
+  font-size: 15px;
   font-weight: 600;
-  line-height: 1.75;
+  line-height: 1.8;
   color: var(--ink);
 }
 .qp-actions {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .qp-comment {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   font-size: 12.5px;
-  line-height: 1.8;
+  line-height: 1.85;
   color: var(--body-muted);
 }
 .qp-ref {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   font-size: 12.5px;
   line-height: 1.9;
   color: var(--body);
@@ -1128,9 +1317,79 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--body-muted);
 }
-.qp-foot-tip {
-  margin-right: 12px;
+
+/* ===== 左下答题卡 =====
+   固定在左下角，但要让开左侧的导航条（rail + panel），
+   否则会压在侧边栏上面。 */
+.qp-sheet {
+  position: fixed;
+  left: calc(var(--rail-w, 64px) + var(--list-w, 300px) + 20px);
+  bottom: 24px;
+  z-index: 20;
+  border-radius: var(--rad-block);
+  border: 1px solid var(--hairline);
+  background: var(--card-grad);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+.qp-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 0;
+  background: transparent;
   font-size: 12.5px;
+  color: var(--body);
+  cursor: pointer;
+}
+.qp-sheet-count {
+  font-size: 11.5px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.qp-caret {
+  font-size: 12px;
   color: var(--body-muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.qp-caret.up {
+  transform: rotate(180deg);
+}
+.qp-sheet-body {
+  display: grid;
+  grid-template-columns: repeat(5, 32px);
+  gap: 8px;
+  padding: 4px 14px 14px;
+  max-height: 210px;
+  overflow-y: auto;
+}
+.qp-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  font-size: 12px;
+  color: var(--body-muted);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.qp-dot:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.qp-dot.done {
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+.qp-dot.scored {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 </style>

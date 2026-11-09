@@ -188,7 +188,7 @@
 
     </template>
 
-    <!-- ===== 答题页（页内排版，非弹窗） ===== -->
+    <!-- ===== 答题页（页内排版，参考试卷样式） ===== -->
     <template v-else>
       <header class="qp-bar">
         <button class="qp-exit" @click="closeAnswering">‹ 退出答题</button>
@@ -209,100 +209,135 @@
       </header>
 
       <div v-if="phase === 'graded'" class="qp-total">
-        总分 <b>{{ total }}</b> / {{ max }}（{{ activeCard?.questions.length }} 题，平均
-        {{ (total / Math.max(1, activeCard?.questions.length || 1)).toFixed(1) }} 分）
+        总分 <b>{{ total }}</b> / {{ max }}
       </div>
 
-      <div class="qp-page">
-        <div
-          v-for="(q, i) in activeCard?.questions || []"
-          :key="q.id"
-          :ref="(el) => setItemEl(el, i)"
-          class="qp-card"
-        >
-          <div class="qp-card-head">
-            <span class="qp-tag">{{ diffLabel(q.difficulty) }}</span>
-            <span v-if="q.category" class="qp-tag light">{{ q.category }}</span>
-            <span class="qp-card-idx">{{ i + 1 }}</span>
-            <span v-if="scores[i] != null" class="qp-badge" :class="{ low: scores[i] < 6 }">
-              {{ scores[i] }} 分
-            </span>
-          </div>
+      <div class="qp-layout">
+        <!-- 左：试卷正文，按题型分节 -->
+        <div class="qp-paper">
+          <div v-for="(sec, si) in sections" :key="sec.type" class="qp-section">
+            <h3 class="qp-section-title">
+              {{ CN_NUM[si] || si + 1 }}. {{ sec.type }}（共 {{ sec.items.length }} 题）
+            </h3>
 
-          <p class="qp-q">{{ q.title }}</p>
-
-          <!-- 客观题（单选 / 多选 / 判断）：选项直接点选，本地判分 -->
-          <div v-if="isChoice(q)" class="qp-opts">
-            <button
-              v-for="o in q.options"
-              :key="o.key"
-              class="qp-opt"
-              :class="{
-                active: chosen(i, o.key),
-                right: reveal(i) && rightKey(q, o.key),
-                wrong: reveal(i) && chosen(i, o.key) && !rightKey(q, o.key)
-              }"
-              :disabled="phase === 'graded' || scores[i] != null"
-              @click="pick(i, o.key)"
+            <div
+              v-for="item in sec.items"
+              :key="item.q.id"
+              :ref="(el) => setItemEl(el, item.i)"
+              class="qp-item"
             >
-              <span class="qp-opt-key">{{ o.key }}</span>
-              <span class="qp-opt-text">{{ o.text }}</span>
-            </button>
-            <span v-if="q.type === '多选题'" class="qp-opt-hint">多选题，可多选</span>
+              <div class="qp-item-head">
+                <span class="qp-item-no">{{ item.i + 1 }}.</span>
+                <span class="qp-item-type">（{{ item.q.type || '问答题' }}）</span>
+                <span v-if="item.q.difficulty" class="qp-item-diff">{{ diffLabel(item.q.difficulty) }}</span>
+                <span
+                  v-if="scores[item.i] != null"
+                  class="qp-item-score"
+                  :class="{ low: scores[item.i] < 6 }"
+                >
+                  {{ scores[item.i] }} 分
+                </span>
+              </div>
+
+              <p class="qp-item-title">{{ item.q.title }}</p>
+
+              <!-- 客观题：A./B./C./D. 各占一行 -->
+              <div v-if="isChoice(item.q)" class="qp-opts">
+                <button
+                  v-for="o in item.q.options"
+                  :key="o.key"
+                  class="qp-opt"
+                  :class="{
+                    active: chosen(item.i, o.key),
+                    right: reveal(item.i) && rightKey(item.q, o.key),
+                    wrong:
+                      reveal(item.i) && chosen(item.i, o.key) && !rightKey(item.q, o.key)
+                  }"
+                  :disabled="phase === 'graded' || scores[item.i] != null"
+                  @click="pick(item.i, o.key)"
+                >
+                  <span class="qp-opt-key">{{ o.key }}.</span>
+                  <span class="qp-opt-text">{{ o.text }}</span>
+                </button>
+              </div>
+
+              <!-- 主观题：文本框作答 -->
+              <el-input
+                v-else
+                v-model="answers[item.i]"
+                type="textarea"
+                :rows="4"
+                placeholder="写下你的回答"
+                :disabled="phase === 'graded' || scoringOne === item.i"
+              />
+
+              <!-- 我的答案 -->
+              <div v-if="(answers[item.i] || '').trim()" class="qp-myanswer">
+                <span class="qp-myanswer-lbl">我的答案：</span>
+                <span class="qp-myanswer-text">
+                  {{
+                    isChoice(item.q)
+                      ? answers[item.i]
+                      : answers[item.i].slice(0, 80) + (answers[item.i].length > 80 ? '…' : '')
+                  }}
+                </span>
+              </div>
+
+              <div v-if="mode === 'practice' && phase !== 'graded'" class="qp-actions">
+                <el-button
+                  size="small"
+                  type="primary"
+                  plain
+                  :loading="scoringOne === item.i"
+                  :disabled="scores[item.i] != null"
+                  @click="scoreOne(item.i)"
+                >
+                  {{ isChoice(item.q) ? '确认答案' : '提交评分' }}
+                </el-button>
+                <el-button v-if="scores[item.i] != null" size="small" text @click="redoOne(item.i)">
+                  重答
+                </el-button>
+              </div>
+
+              <p v-if="comments[item.i]" class="qp-comment">{{ comments[item.i] }}</p>
+              <p v-if="item.q.explain && reveal(item.i)" class="qp-ref">
+                <span class="qp-lbl">解析</span>{{ item.q.explain }}
+              </p>
+              <p
+                v-if="!isChoice(item.q) && (scores[item.i] != null || phase === 'graded')"
+                class="qp-ref"
+              >
+                <span class="qp-lbl">参考答案</span>{{ item.q.answer || '（题库未提供）' }}
+              </p>
+            </div>
           </div>
+        </div>
 
-          <!-- 主观题：文本框作答，交 AI 评分 -->
-          <el-input
-            v-else
-            v-model="answers[i]"
-            type="textarea"
-            :rows="4"
-            placeholder="写下你的回答"
-            :disabled="phase === 'graded' || scoringOne === i"
-          />
-
-          <div v-if="mode === 'practice' && phase !== 'graded'" class="qp-actions">
-            <el-button
-              size="small"
-              type="primary"
-              plain
-              :loading="scoringOne === i"
-              :disabled="scores[i] != null"
-              @click="scoreOne(i)"
-            >
-              {{ isChoice(q) ? '确认答案' : '提交评分' }}
-            </el-button>
-            <el-button v-if="scores[i] != null" size="small" text @click="redoOne(i)">重答</el-button>
+        <!-- 右：答题卡，按题型分节 -->
+        <aside class="qp-side">
+          <div class="qp-side-card">
+            <div v-for="(sec, si) in sections" :key="sec.type" class="qp-side-sec">
+              <div class="qp-side-title">
+                <span>{{ CN_NUM[si] || si + 1 }}. {{ sec.type }}</span>
+                <span class="qp-side-count">{{ sec.items.length }} 题</span>
+              </div>
+              <div class="qp-side-grid">
+                <button
+                  v-for="item in sec.items"
+                  :key="item.q.id"
+                  class="qp-dot"
+                  :class="{ done: (answers[item.i] || '').trim(), scored: scores[item.i] != null }"
+                  @click="jumpTo(item.i)"
+                >
+                  {{ item.i + 1 }}
+                </button>
+              </div>
+            </div>
+            <div class="qp-side-foot">
+              已答 {{ answeredCount }} / {{ activeCard?.questions.length || 0 }}
+            </div>
           </div>
-
-          <p v-if="comments[i]" class="qp-comment">{{ comments[i] }}</p>
-          <p v-if="q.explain && reveal(i)" class="qp-ref">
-            <span class="qp-lbl">解析</span>{{ q.explain }}
-          </p>
-          <p v-if="!isChoice(q) && (scores[i] != null || phase === 'graded')" class="qp-ref">
-            <span class="qp-lbl">参考答案</span>{{ q.answer || '（题库未提供）' }}
-          </p>
-        </div>
-      </div>
-
-      <!-- 左下答题卡：点数字跳到对应题目 -->
-      <div class="qp-sheet" :class="{ open: sheetOpen }">
-        <button class="qp-sheet-head" @click="sheetOpen = !sheetOpen">
-          答题卡
-          <span class="qp-sheet-count">{{ answeredCount }} / {{ activeCard?.questions.length || 0 }}</span>
-          <span class="qp-caret" :class="{ up: sheetOpen }">⌄</span>
-        </button>
-        <div v-if="sheetOpen" class="qp-sheet-body">
-          <button
-            v-for="(q, i) in activeCard?.questions || []"
-            :key="q.id"
-            class="qp-dot"
-            :class="{ done: (answers[i] || '').trim(), scored: scores[i] != null }"
-            @click="jumpTo(i)"
-          >
-            {{ i + 1 }}
-          </button>
-        </div>
+        </aside>
       </div>
     </template>
   </section>
@@ -857,6 +892,27 @@ function jumpTo(i) {
 
 const answeredCount = computed(() => answers.value.filter((a) => (a || '').trim()).length)
 
+/* ===== 试卷分节：按题型分组，单选的排前面，问答题排最后 ===== */
+const CN_NUM = ['一', '二', '三', '四', '五', '六']
+const TYPE_ORDER = ['单选题', '多选题', '判断题', '问答题']
+
+const sections = computed(() => {
+  const qs = activeCard.value?.questions || []
+  const groups = new Map()
+  qs.forEach((q, i) => {
+    const t = q.type || '问答题'
+    if (!groups.has(t)) groups.set(t, [])
+    groups.get(t).push({ q, i })
+  })
+  return [...groups.entries()]
+    .sort((a, b) => {
+      const ia = TYPE_ORDER.indexOf(a[0])
+      const ib = TYPE_ORDER.indexOf(b[0])
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+    })
+    .map(([type, items]) => ({ type, items }))
+})
+
 /** 单题评分（练习模式）：客观题本地判分，主观题交模型 */
 async function scoreOne(i) {
   const q = activeCard.value.questions[i]
@@ -1281,7 +1337,7 @@ onMounted(async () => {
   font-variant-numeric: tabular-nums;
 }
 /* ============================================================
-   答题页（页内排版，参考答题站的样式）
+   答题页（试卷样式：左侧题目 + 右侧答题卡）
    ============================================================ */
 .qp-bar {
   position: sticky;
@@ -1331,148 +1387,167 @@ onMounted(async () => {
   font-size: 13px;
   color: var(--body);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
 }
 .qp-done-tip {
   font-size: 12.5px;
   color: var(--accent);
 }
-.qp-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-bottom: 70px;
-}
-.qp-card {
-  padding: 18px 20px;
+.qp-total {
+  padding: 12px 14px;
+  margin-bottom: 14px;
   border-radius: var(--rad-block);
-  border: 1px solid var(--hairline);
-  background: var(--card-grad);
-  scroll-margin-top: 70px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-wash);
+  font-size: 13px;
+  color: var(--body);
 }
-.qp-card-head {
+.qp-total b {
+  font-size: 22px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== 两栏：试卷 + 答题卡 ===== */
+.qp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 22px;
+  align-items: start;
+}
+.qp-paper {
+  min-width: 0;
+  padding-bottom: 40px;
+}
+.qp-section + .qp-section {
+  margin-top: 28px;
+}
+.qp-section-title {
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.qp-item {
+  padding: 14px 0 18px;
+  border-bottom: 1px dashed var(--hairline);
+  scroll-margin-top: 84px;
+}
+.qp-item:last-child {
+  border-bottom: 0;
+}
+.qp-item-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  margin-bottom: 8px;
 }
-.qp-tag {
-  padding: 1px 8px;
-  border-radius: 5px;
-  font-size: 11.5px;
-  background: var(--accent-wash-2);
-  color: var(--accent);
-  white-space: nowrap;
+.qp-item-no {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
-.qp-tag.light {
-  background: var(--canvas-2);
-  color: var(--body-muted);
-}
-.qp-card-idx {
+.qp-item-type,
+.qp-item-diff {
   font-size: 12px;
   color: var(--body-muted);
-  font-variant-numeric: tabular-nums;
 }
-.qp-badge {
+.qp-item-score {
   margin-left: auto;
-  padding: 1px 9px;
-  border-radius: var(--rad-pill);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
-  background: var(--accent-wash-2);
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
-.qp-badge.low {
-  background: var(--danger-wash);
+.qp-item-score.low {
   color: var(--danger);
 }
-.qp-q {
-  margin: 0 0 10px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.8;
+.qp-item-title {
+  margin: 0 0 12px;
+  font-size: 14.5px;
+  line-height: 1.85;
   color: var(--ink);
+  white-space: pre-wrap;
 }
 
-/* ===== 客观题选项 ===== */
+/* ===== 选项：A. 单独一行，文本在下方 ===== */
 .qp-opts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: 4px;
 }
 .qp-opt {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  padding: 11px 14px;
-  border-radius: var(--rad-block);
-  border: 1px solid var(--hairline);
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: transparent;
   text-align: left;
   font-size: 13.5px;
-  line-height: 1.7;
+  line-height: 1.75;
   color: var(--body);
   cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 .qp-opt:hover:not(:disabled) {
-  border-color: var(--accent-line);
   background: var(--accent-wash);
 }
 .qp-opt:disabled {
   cursor: default;
-  opacity: 0.85;
 }
 .qp-opt-key {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
+  width: 20px;
   font-weight: 600;
   color: var(--body-muted);
-  border: 1px solid var(--hairline);
-  background: var(--canvas-2);
+}
+.qp-opt-text {
+  flex: 1;
 }
 .qp-opt.active {
-  border-color: var(--accent);
-  background: var(--accent-wash);
+  background: var(--accent-wash-2);
+  border-color: var(--accent-line);
 }
 .qp-opt.active .qp-opt-key {
-  color: var(--accent-ink);
-  background: var(--accent);
-  border-color: transparent;
+  color: var(--accent);
 }
-/* 判分后：正确的选项标绿，选错的标红 */
 .qp-opt.right {
-  border-color: var(--accent);
   background: var(--accent-wash-2);
+  border-color: var(--accent);
 }
 .qp-opt.right .qp-opt-key {
-  color: var(--accent-ink);
-  background: var(--accent);
-  border-color: transparent;
+  color: var(--accent);
 }
 .qp-opt.wrong {
-  border-color: var(--danger);
   background: var(--danger-wash);
+  border-color: var(--danger);
 }
 .qp-opt.wrong .qp-opt-key {
-  color: #fff;
-  background: var(--danger);
-  border-color: transparent;
+  color: var(--danger);
 }
-.qp-opt-hint {
-  font-size: 11.5px;
+
+/* ===== 我的答案 ===== */
+.qp-myanswer {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--canvas-2);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--body);
+}
+.qp-myanswer-lbl {
   color: var(--body-muted);
+}
+.qp-myanswer-text {
+  color: var(--accent);
+  font-weight: 600;
 }
 .qp-actions {
   margin-top: 10px;
@@ -1480,11 +1555,11 @@ onMounted(async () => {
 .qp-comment {
   margin: 10px 0 0;
   font-size: 12.5px;
-  line-height: 1.85;
+  line-height: 1.8;
   color: var(--body-muted);
 }
 .qp-ref {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   font-size: 12.5px;
   line-height: 1.9;
   color: var(--body);
@@ -1497,60 +1572,48 @@ onMounted(async () => {
   color: var(--body-muted);
 }
 
-/* ===== 左下答题卡 =====
-   固定在左下角，但要让开左侧的导航条（rail + panel），
-   否则会压在侧边栏上面。 */
-.qp-sheet {
-  position: fixed;
-  left: calc(var(--rail-w, 64px) + var(--list-w, 300px) + 20px);
-  bottom: 24px;
-  z-index: 20;
+/* ===== 右侧答题卡 ===== */
+.qp-side {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+}
+.qp-side-card {
+  padding: 14px 16px;
   border-radius: var(--rad-block);
   border: 1px solid var(--hairline);
   background: var(--card-grad);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.14);
-  overflow: hidden;
+  backdrop-filter: blur(18px);
 }
-.qp-sheet-head {
+.qp-side-sec + .qp-side-sec {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hairline);
+}
+.qp-side-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 14px;
-  border: 0;
-  background: transparent;
+  justify-content: space-between;
+  margin-bottom: 8px;
   font-size: 12.5px;
+  font-weight: 600;
   color: var(--body);
-  cursor: pointer;
 }
-.qp-sheet-count {
-  font-size: 11.5px;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-.qp-caret {
-  font-size: 12px;
+.qp-side-count {
+  font-weight: 400;
   color: var(--body-muted);
-  transition: transform var(--dur-fast) var(--ease-out);
 }
-.qp-caret.up {
-  transform: rotate(180deg);
-}
-.qp-sheet-body {
+.qp-side-grid {
   display: grid;
-  grid-template-columns: repeat(5, 32px);
-  gap: 8px;
-  padding: 4px 14px 14px;
-  max-height: 210px;
-  overflow-y: auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
 }
 .qp-dot {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  height: 28px;
+  border-radius: 6px;
   border: 1px solid var(--hairline);
-  background: transparent;
-  font-size: 12px;
+  background: var(--canvas-2);
+  font-size: 11.5px;
   color: var(--body-muted);
   cursor: pointer;
   font-variant-numeric: tabular-nums;
@@ -1571,4 +1634,17 @@ onMounted(async () => {
   color: var(--accent-ink);
   font-weight: 600;
 }
-</style>
+.qp-side-foot {
+  margin-top: 12px;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--body-muted);
+}
+@media (max-width: 1100px) {
+  .qp-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .qp-side {
+    position: static;
+  }
+}</style>

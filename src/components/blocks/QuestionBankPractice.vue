@@ -231,7 +231,29 @@
 
           <p class="qp-q">{{ q.title }}</p>
 
+          <!-- 客观题（单选 / 多选 / 判断）：选项直接点选，本地判分 -->
+          <div v-if="isChoice(q)" class="qp-opts">
+            <button
+              v-for="o in q.options"
+              :key="o.key"
+              class="qp-opt"
+              :class="{
+                active: chosen(i, o.key),
+                right: reveal(i) && rightKey(q, o.key),
+                wrong: reveal(i) && chosen(i, o.key) && !rightKey(q, o.key)
+              }"
+              :disabled="phase === 'graded' || scores[i] != null"
+              @click="pick(i, o.key)"
+            >
+              <span class="qp-opt-key">{{ o.key }}</span>
+              <span class="qp-opt-text">{{ o.text }}</span>
+            </button>
+            <span v-if="q.type === '多选题'" class="qp-opt-hint">多选题，可多选</span>
+          </div>
+
+          <!-- 主观题：文本框作答，交 AI 评分 -->
           <el-input
+            v-else
             v-model="answers[i]"
             type="textarea"
             :rows="4"
@@ -248,13 +270,16 @@
               :disabled="scores[i] != null"
               @click="scoreOne(i)"
             >
-              提交评分
+              {{ isChoice(q) ? '确认答案' : '提交评分' }}
             </el-button>
             <el-button v-if="scores[i] != null" size="small" text @click="redoOne(i)">重答</el-button>
           </div>
 
           <p v-if="comments[i]" class="qp-comment">{{ comments[i] }}</p>
-          <p v-if="scores[i] != null || phase === 'graded'" class="qp-ref">
+          <p v-if="q.explain && reveal(i)" class="qp-ref">
+            <span class="qp-lbl">解析</span>{{ q.explain }}
+          </p>
+          <p v-if="!isChoice(q) && (scores[i] != null || phase === 'graded')" class="qp-ref">
             <span class="qp-lbl">参考答案</span>{{ q.answer || '（题库未提供）' }}
           </p>
         </div>
@@ -832,13 +857,22 @@ function jumpTo(i) {
 
 const answeredCount = computed(() => answers.value.filter((a) => (a || '').trim()).length)
 
-/** 单题评分（练习模式） */
+/** 单题评分（练习模式）：客观题本地判分，主观题交模型 */
 async function scoreOne(i) {
   const q = activeCard.value.questions[i]
   if (!(answers.value[i] || '').trim()) {
-    ElMessage.warning('先写点内容再提交')
+    ElMessage.warning(isChoice(q) ? '先选一个答案' : '先写点内容再提交')
     return
   }
+
+  // 客观题：本地比对正确答案，不调模型（省钱、秒出分）
+  if (isChoice(q)) {
+    gradeObjective(i)
+    await persistRecords([i])
+    await loadRecords()
+    return
+  }
+
   scoringOne.value = i
   try {
     const { data } = await scorePracticeAPI([
@@ -860,6 +894,60 @@ async function scoreOne(i) {
 function redoOne(i) {
   scores.value[i] = null
   comments.value[i] = ''
+}
+
+/* ============================================================
+   客观题（单选 / 多选 / 判断）
+   —— 有 options 的题不走 AI，直接本地比对正确答案，秒出分。
+   ============================================================ */
+function isChoice(q) {
+  return Array.isArray(q?.options) && q.options.length > 0 && q.type !== '问答题'
+}
+
+/** 只看字母并排序，这样「AB」「ba」都算一样 */
+function normAnswer(s) {
+  return String(s || '')
+    .toUpperCase()
+    .split('')
+    .filter((c) => c >= 'A' && c <= 'Z')
+    .sort()
+    .join('')
+}
+
+function chosen(i, key) {
+  return String(answers.value[i] || '').includes(key)
+}
+
+function pick(i, key) {
+  const q = activeCard.value.questions[i]
+  if (q.type === '多选题') {
+    const cur = new Set(String(answers.value[i] || '').split('').filter(Boolean))
+    if (cur.has(key)) cur.delete(key)
+    else cur.add(key)
+    answers.value[i] = [...cur].sort().join('')
+  } else {
+    answers.value[i] = key
+  }
+}
+
+/** 已经判过分 / 已交卷才显示对错标记和解析 */
+function reveal(i) {
+  return scores.value[i] != null || phase.value === 'graded'
+}
+
+function rightKey(q, key) {
+  return normAnswer(q.correct).includes(key)
+}
+
+/** 客观题判分：全对 10 分，否则 0 分 */
+function gradeObjective(i) {
+  const q = activeCard.value.questions[i]
+  const correct = normAnswer(q.correct)
+  if (!correct) return false
+  const right = normAnswer(answers.value[i]) === correct && !!normAnswer(answers.value[i])
+  scores.value[i] = right ? 10 : 0
+  comments.value[i] = right ? '回答正确' : `回答错误，正确答案：${correct}`
+  return true
 }
 
 /* ===== 记录落库 ===== */
@@ -911,40 +999,52 @@ async function persistExam(qs) {
 /** 整组评分：一次请求评完所有未评的题（逐题调用会慢十几倍） */
 async function submitAll() {
   const qs = activeCard.value.questions
-  const todo = []
+
+  // 客观题本地判分，只有主观题才需要调模型
+  const objTodo = []
+  const subTodo = []
   qs.forEach((q, i) => {
-    if (scores.value[i] == null) todo.push(i)
+    if (scores.value[i] != null) return
+    if (isChoice(q)) objTodo.push(i)
+    else if ((answers.value[i] || '').trim()) subTodo.push(i)
   })
-  if (!todo.length) {
+  objTodo.forEach((i) => gradeObjective(i))
+
+  const finish = async () => {
     phase.value = 'graded'
     total.value = scores.value.reduce((a, b) => a + (b || 0), 0)
+    max.value = qs.length * 10
+    const done = scores.value.map((s, i) => (s != null ? i : -1)).filter((i) => i >= 0)
+    await persistRecords(done)
+    if (props.mode === 'exam') await persistExam(qs)
+    await loadRecords()
+  }
+
+  if (!subTodo.length) {
+    // 整张卡都是客观题（或主观题一题没答）：本地判完就能交卷
+    const anyDone = scores.value.some((s) => s != null)
+    if (!anyDone) {
+      ElMessage.warning('一题都还没答，先选一个答案')
+      return
+    }
+    await finish()
     return
   }
-  if (todo.every((i) => !(answers.value[i] || '').trim())) {
-    ElMessage.warning('一题都还没答，先写点内容')
-    return
-  }
+
   grading.value = true
   try {
-    const items = todo.map((i) => ({
+    const items = subTodo.map((i) => ({
       question: qs[i].title,
       reference: qs[i].answer,
       answer: answers.value[i] || ''
     }))
     const { data } = await scorePracticeAPI(items)
     ;(data.results || []).forEach((r, k) => {
-      const i = todo[k]
+      const i = subTodo[k]
       scores.value[i] = r.score ?? 0
       comments.value[i] = r.comment || ''
     })
-    phase.value = 'graded'
-    total.value = scores.value.reduce((a, b) => a + (b || 0), 0)
-    max.value = qs.length * 10
-
-    // 落库：练习按题记；考试模式再额外记一条整场成绩
-    await persistRecords(todo)
-    if (props.mode === 'exam') await persistExam(qs)
-    await loadRecords()
+    await finish()
   } catch (e) {
     ElMessage.error(e.response?.data?.detail || '评分失败')
   } finally {
@@ -1294,6 +1394,85 @@ onMounted(async () => {
   font-weight: 600;
   line-height: 1.8;
   color: var(--ink);
+}
+
+/* ===== 客观题选项 ===== */
+.qp-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.qp-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--rad-block);
+  border: 1px solid var(--hairline);
+  background: transparent;
+  text-align: left;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--body);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.qp-opt:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+}
+.qp-opt:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+.qp-opt-key {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--body-muted);
+  border: 1px solid var(--hairline);
+  background: var(--canvas-2);
+}
+.qp-opt.active {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.qp-opt.active .qp-opt-key {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: transparent;
+}
+/* 判分后：正确的选项标绿，选错的标红 */
+.qp-opt.right {
+  border-color: var(--accent);
+  background: var(--accent-wash-2);
+}
+.qp-opt.right .qp-opt-key {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: transparent;
+}
+.qp-opt.wrong {
+  border-color: var(--danger);
+  background: var(--danger-wash);
+}
+.qp-opt.wrong .qp-opt-key {
+  color: #fff;
+  background: var(--danger);
+  border-color: transparent;
+}
+.qp-opt-hint {
+  font-size: 11.5px;
+  color: var(--body-muted);
 }
 .qp-actions {
   margin-top: 10px;

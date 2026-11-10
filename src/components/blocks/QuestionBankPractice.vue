@@ -202,7 +202,7 @@
             :loading="grading"
             @click="submitAll"
           >
-            {{ mode === 'exam' ? '交卷' : '整组评分' }}
+            {{ mode === 'exam' ? '交卷' : '批改' }}
           </el-button>
           <span v-else class="qp-done-tip">已交卷</span>
         </div>
@@ -326,7 +326,11 @@
                   v-for="item in sec.items"
                   :key="item.q.id"
                   class="qp-dot"
-                  :class="{ done: (answers[item.i] || '').trim(), scored: scores[item.i] != null }"
+                  :class="{
+                    done: (answers[item.i] || '').trim(),
+                    scored: scores[item.i] != null,
+                    wrong: scores[item.i] != null && scores[item.i] < 6
+                  }"
                   @click="jumpTo(item.i)"
                 >
                   {{ item.i + 1 }}
@@ -358,7 +362,7 @@
         <p v-else class="qp-summary-text">{{ summaryText }}</p>
       </div>
       <template #footer>
-        <el-button @click="continueEditing">继续修改答案</el-button>
+        <el-button @click="viewAnswers">查看答题</el-button>
         <el-button type="primary" @click="exitWithSummary">退出答题</el-button>
       </template>
     </el-dialog>
@@ -871,15 +875,34 @@ async function loadAll() {
 
 function openCard(c) {
   activeCard.value = c
-  answers.value = c.questions.map(() => '')
-  scores.value = c.questions.map(() => null)
-  comments.value = c.questions.map(() => '')
-  phase.value = 'answering'
+  const qs = c.questions
+  answers.value = qs.map(() => '')
+  scores.value = qs.map(() => null)
+  comments.value = qs.map(() => '')
   total.value = 0
-  max.value = c.questions.length * 10
+  max.value = qs.length * 10
   scoringOne.value = -1
   itemEls.length = 0
   sheetOpen.value = false
+
+  /* 回填历史作答：做过的题保持已完成状态，不用重复做。
+     同一道题做过多次时取历史最好成绩（与进度环口径一致）。 */
+  const best = new Map()
+  records.value.practice.forEach((r) => {
+    const qid = String(r.qid || '')
+    if (!qid) return
+    const prev = best.get(qid)
+    if (!prev || Number(r.score) > Number(prev.score)) best.set(qid, r)
+  })
+  qs.forEach((q, i) => {
+    const hit = best.get(String(q.id))
+    if (hit) {
+      scores.value[i] = Number(hit.score) || 0
+      answers.value[i] = hit.answer || ''
+    }
+  })
+
+  phase.value = 'answering'
   answering.value = true
   startTimer()
 }
@@ -1099,36 +1122,44 @@ async function persistExam(qs) {
   }
 }
 
-/** 整组评分：一次请求评完所有未评的题（逐题调用会慢十几倍） */
+/** 批改：只批改「已作答且还没批过」的题，没答的跳过不批 */
 async function submitAll() {
   const qs = activeCard.value.questions
 
-  // 客观题本地判分，只有主观题才需要调模型
+  // 客观题本地判分，主观题才需要调模型
   const objTodo = []
   const subTodo = []
   qs.forEach((q, i) => {
-    if (scores.value[i] != null) return
+    if (scores.value[i] != null) return          // 已批过（含历史作答回填）的跳过
+    if (!(answers.value[i] || '').trim()) return // 未作答的不批
     if (isChoice(q)) objTodo.push(i)
-    else if ((answers.value[i] || '').trim()) subTodo.push(i)
+    else subTodo.push(i)
   })
+
+  // 本次新批出来的题，落库时只写这些，避免把历史记录重复写一遍
+  const newlyGraded = [...objTodo]
   objTodo.forEach((i) => gradeObjective(i))
 
   const finish = async () => {
     phase.value = 'graded'
     total.value = scores.value.reduce((a, b) => a + (b || 0), 0)
     max.value = qs.length * 10
-    const done = scores.value.map((s, i) => (s != null ? i : -1)).filter((i) => i >= 0)
-    await persistRecords(done)
+    await persistRecords(newlyGraded)
     if (props.mode === 'exam') await persistExam(qs)
     await loadRecords()
     await buildSummary(qs)
   }
 
   if (!subTodo.length) {
-    // 整张卡都是客观题（或主观题一题没答）：本地判完就能交卷
-    const anyDone = scores.value.some((s) => s != null)
-    if (!anyDone) {
-      ElMessage.warning('一题都还没答，先选一个答案')
+    if (!newlyGraded.length) {
+      // 没有新题可批：要么全没答，要么之前都批过了
+      const anyDone = scores.value.some((s) => s != null)
+      if (!anyDone) {
+        ElMessage.warning('还没有作答的题目，先答几题再批改')
+        return
+      }
+      ElMessage.info('本次没有需要批改的新题目')
+      await finish()
       return
     }
     await finish()
@@ -1147,6 +1178,7 @@ async function submitAll() {
       const i = subTodo[k]
       scores.value[i] = r.score ?? 0
       comments.value[i] = r.comment || ''
+      newlyGraded.push(i)
     })
     await finish()
   } catch (e) {
@@ -1184,12 +1216,10 @@ async function buildSummary(qs) {
   }
 }
 
-/** 继续修改答案：关掉点评、解锁作答区，清空本次判分重新作答 */
-function continueEditing() {
+/** 关闭点评、留在答题页查看作答（只读） */
+function viewAnswers() {
   summaryVisible.value = false
-  scores.value = scores.value.map(() => null)
-  comments.value = comments.value.map(() => '')
-  phase.value = 'answering'
+  phase.value = 'graded'
 }
 
 /** 退出答题：这时才把点评写进记录，然后离开答题页 */
@@ -1739,6 +1769,13 @@ onMounted(async () => {
   border-color: transparent;
   background: var(--accent);
   color: var(--accent-ink);
+  font-weight: 600;
+}
+/* 批改后答错的题在答题卡上标红，方便一眼找到要复盘的题 */
+.qp-dot.wrong {
+  border-color: transparent;
+  background: var(--danger);
+  color: #fff;
   font-weight: 600;
 }
 .qp-side-foot {

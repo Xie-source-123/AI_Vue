@@ -6,16 +6,30 @@
         <el-select
           v-if="banks.length > 1"
           v-model="fBank"
-          placeholder="全部题库"
+          placeholder="全部岗位"
           size="small"
           clearable
-          style="width: 180px"
+          style="width: 160px"
         >
           <el-option v-for="b in banks" :key="b" :label="b" :value="b" />
         </el-select>
-        <el-select v-if="mode !== 'practice'" v-model="fDate" placeholder="全部日期" size="small" clearable style="width: 150px">
+        <!-- 知识点只列出「有作答记录」的，没练过的不用出现 -->
+        <el-select
+          v-if="mode === 'practice' && categories.length > 1"
+          v-model="fCategory"
+          placeholder="全部知识点"
+          size="small"
+          clearable
+          style="width: 160px"
+        >
+          <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
+        </el-select>
+        <el-select v-model="fDate" placeholder="全部日期" size="small" clearable style="width: 150px">
           <el-option v-for="d in dates" :key="d" :label="d" :value="d" />
         </el-select>
+        <el-button v-if="fBank || fCategory || fDate" link type="primary" size="small" @click="clearFilters">
+          清空定位
+        </el-button>
         <el-button link type="primary" size="small" :loading="loading" @click="load">刷新</el-button>
       </div>
     </div>
@@ -154,9 +168,10 @@ const summaryByRef = computed(() => {
 })
 
 function summaryOf(session) {
-  return summaryByRef.value.get(session.at) || ''
+  return session.summary || ''
 }
 const fBank = ref('')
+const fCategory = ref('')
 const fDate = ref('')
 const openId = ref('')
 
@@ -169,14 +184,26 @@ const activeCard = ref(null)
 const all = computed(() => (props.mode === 'exams' ? exams.value : practice.value))
 const banks = computed(() => [...new Set(all.value.map((r) => r.bank).filter(Boolean))])
 
+/* 知识点定位：只列「有作答记录」的知识点，没练过的不出现 */
+const categories = computed(() =>
+  [...new Set(all.value.map((r) => r.category).filter(Boolean))].sort()
+)
+
 const dates = computed(() =>
   [...new Set(all.value.map((r) => String(r.at || '').slice(0, 10)).filter(Boolean))].sort().reverse()
 )
+
+function clearFilters() {
+  fBank.value = ''
+  fCategory.value = ''
+  fDate.value = ''
+}
 
 const rows = computed(() =>
   all.value.filter(
     (r) =>
       (!fBank.value || r.bank === fBank.value) &&
+      (!fCategory.value || r.category === fCategory.value) &&
       (!fDate.value || String(r.at || '').startsWith(fDate.value))
   )
 )
@@ -186,20 +213,26 @@ function titleOf(qid) {
 }
 
 /**
- * 练习记录按「提交时间」聚合成大卡片。
- * 后端一次 POST 的所有记录共用同一个时间戳，所以同一个 at 就是同一次练习，
- * 正好可以当作会话标识 —— 不用额外存 sessionId。
+ * 练习记录按「日期 + 知识点」聚合成大卡片。
+ * 同一天、同一知识点的所有作答（可能跨多次提交）合并成一张卡，
+ * 这样卡片数量可控，也能看出「这个知识点今天练了多少」。
  */
 const sessions = computed(() => {
   const m = new Map()
   rows.value.forEach((r) => {
-    const key = String(r.at || '')
-    if (!m.has(key)) m.set(key, { key, at: key, bank: r.bank || '', raws: [] })
-    m.get(key).raws.push(r)
+    const day = String(r.at || '').slice(0, 10) || '未知日期'
+    const cat = r.category || '未分类'
+    const key = `${day}||${cat}`
+    if (!m.has(key)) {
+      m.set(key, { key, day, category: cat, bank: r.bank || '', ats: [], raws: [] })
+    }
+    const g = m.get(key)
+    g.ats.push(String(r.at || ''))
+    g.raws.push(r)
   })
 
   return [...m.values()]
-    .sort((a, b) => (a.at < b.at ? 1 : -1))
+    .sort((a, b) => (a.day < b.day ? 1 : -1))
     .map((s) => {
       const items = s.raws
         .map((r) => {
@@ -216,14 +249,20 @@ const sessions = computed(() => {
         })
         .sort((a, b) => b.score - a.score)
       const sum = items.reduce((a, q) => a + q.score, 0)
-      const cats = [...new Set(items.map((q) => q.category))]
+      const ats = [...new Set(s.ats)].sort()
+      // 同一张卡里可能有多条批次点评，取最新的一条
+      const summary = ats.map((a) => summaryByRef.value.get(a)).filter(Boolean).pop() || ''
       return {
         key: s.key,
         bank: s.bank,
-        atText: s.at ? s.at.slice(5, 16) : '—',
+        category: s.category,
+        day: s.day,
+        atText: s.day,
+        at: ats[ats.length - 1] || '',
+        summary,
         count: items.length,
         avg: items.length ? (sum / items.length).toFixed(1) : '0.0',
-        catsText: cats.join('、'),
+        catsText: s.category,
         items
       }
     })

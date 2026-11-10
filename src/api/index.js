@@ -177,6 +177,16 @@ export function fetchPracticeStatsAPI() {
   return api.get('/api/practice/stats', { params: { username: getUserId() }, timeout: 30000 })
 }
 
+/** 交卷后让模型写一段 30-50 字的点评 */
+export function summarizePracticeAPI(payload) {
+  return api.post('/api/practice/summarize', payload, { timeout: 90000 })
+}
+
+/** 用户彻底退出答题后，把点评存进记录 */
+export function saveSummaryAPI(payload) {
+  return api.post('/api/practice/summary', { username: getUserId(), ...payload })
+}
+
 export function deleteExamRecordAPI(id) {
   return api.delete(`/api/practice/exams/${encodeURIComponent(id)}`, {
     params: { username: getUserId() }

@@ -340,6 +340,28 @@
         </aside>
       </div>
     </template>
+
+    <!-- ===== 交卷点评（弹窗） ===== -->
+    <el-dialog
+      v-model="summaryVisible"
+      :title="mode === 'exam' ? '本次模拟考试点评' : '本次练习点评'"
+      width="480px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      append-to-body
+    >
+      <div class="qp-summary">
+        <div class="qp-summary-score">
+          总分 <b>{{ total }}</b> / {{ max }}
+        </div>
+        <p v-if="summaryLoading" class="qp-summary-loading">正在生成点评…</p>
+        <p v-else class="qp-summary-text">{{ summaryText }}</p>
+      </div>
+      <template #footer>
+        <el-button @click="continueEditing">继续修改答案</el-button>
+        <el-button type="primary" @click="exitWithSummary">退出答题</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -353,7 +375,9 @@ import {
   fetchPracticeRecordsAPI,
   savePracticeRecordsAPI,
   saveExamRecordAPI,
-  clearPracticeRecordsAPI
+  clearPracticeRecordsAPI,
+  summarizePracticeAPI,
+  saveSummaryAPI
 } from '@/api/index.js'
 import FilterRow from './FilterRow.vue'
 
@@ -378,6 +402,14 @@ const filters = reactive({ position: '', category: '', difficulty: '' })
 const answering = ref(false)
 const sheetOpen = ref(false)
 const elapsed = ref(0)
+
+/* ===== 交卷点评 ===== */
+const summaryVisible = ref(false)
+const summaryText = ref('')
+const summaryLoading = ref(false)
+const summaryRef = ref('')     // 练习=批次时间戳 / 考试=考试记录 id
+const lastPracticeAt = ref('')
+const lastExamId = ref('')
 const activeCard = ref(null)
 const answers = ref([])
 const scores = ref([])
@@ -428,18 +460,30 @@ const positionOptions = computed(() =>
   }))
 )
 
-const categoryOptions = computed(() =>
-  allCategoryNames.value.map((c) => ({
+/* 知识点跟着岗位走：选了岗位，只列出该岗位（题库）涉及的知识点。
+   难度与知识点之间【不联动】—— 你的题库里难度和知识点基本是 1:1 的，
+   再联动会让标签大面积消失（之前那个「必须先选难度」的假象就是这么来的）。 */
+const categoryOptions = computed(() => {
+  const src = filters.position
+    ? questions.value.filter((q) => (q._bank || '') === filters.position)
+    : questions.value
+  const names = [...new Set(src.map((q) => q.category || '未分类'))]
+  return names.map((c) => ({
     value: c,
     label: c,
-    count: questions.value.filter(
+    count: src.filter(
       (q) =>
         (q.category || '未分类') === c &&
-        (!filters.position || q._bank === filters.position) &&
         (!filters.difficulty || diffLabel(q.difficulty) === filters.difficulty)
     ).length
   }))
-)
+})
+
+/* 换岗位后，原先选中的知识点若不在新岗位里就自动清掉 */
+const visibleCategories = computed(() => categoryOptions.value.map((o) => o.value))
+watch(visibleCategories, (list) => {
+  if (filters.category && !list.includes(filters.category)) filters.category = ''
+})
 
 /* 难度固定显示三项（哪怕某项当前是 0 题），避免标签忽隐忽现 */
 const difficultyOptions = computed(() =>
@@ -1025,7 +1069,9 @@ async function persistRecords(idxs) {
     }))
   if (!rows.length) return
   try {
-    await savePracticeRecordsAPI(rows)
+    const { data } = await savePracticeRecordsAPI(rows)
+    // 后端返回的批次时间戳，点评要用它挂到这批记录上
+    lastPracticeAt.value = data?.at || ''
   } catch {
     ElMessage.warning('练习记录未能同步到服务器')
   }
@@ -1034,7 +1080,7 @@ async function persistRecords(idxs) {
 /** 考试记录：整张卡一次成绩 */
 async function persistExam(qs) {
   try {
-    await saveExamRecordAPI({
+    const { data } = await saveExamRecordAPI({
       bank: activeCard.value.bank,
       card: activeCard.value.category,
       total: scores.value.reduce((a, b) => a + (b || 0), 0),
@@ -1047,6 +1093,7 @@ async function persistExam(qs) {
         answer: answers.value[i] || ''
       }))
     })
+    lastExamId.value = data?.exam?.id || ''
   } catch {
     ElMessage.warning('考试记录未能同步到服务器')
   }
@@ -1074,6 +1121,7 @@ async function submitAll() {
     await persistRecords(done)
     if (props.mode === 'exam') await persistExam(qs)
     await loadRecords()
+    await buildSummary(qs)
   }
 
   if (!subTodo.length) {
@@ -1108,10 +1156,69 @@ async function submitAll() {
   }
 }
 
+/* ============================================================
+   交卷点评：先弹窗给用户看，退出答题时才落库
+   ============================================================ */
+async function buildSummary(qs) {
+  summaryRef.value = props.mode === 'exam' ? lastExamId.value : lastPracticeAt.value
+  summaryText.value = ''
+  summaryLoading.value = true
+  summaryVisible.value = true
+  try {
+    const items = qs
+      .map((q, i) =>
+        scores.value[i] != null ? { type: q.type || '问答题', score: scores.value[i] } : null
+      )
+      .filter(Boolean)
+    const { data } = await summarizePracticeAPI({
+      items,
+      total: total.value,
+      max: max.value,
+      mode: props.mode
+    })
+    summaryText.value = data.summary || ''
+  } catch {
+    summaryText.value = '本次已完成，点评没能生成，成绩已记录。'
+  } finally {
+    summaryLoading.value = false
+  }
+}
+
+/** 继续修改答案：关掉点评、解锁作答区，清空本次判分重新作答 */
+function continueEditing() {
+  summaryVisible.value = false
+  scores.value = scores.value.map(() => null)
+  comments.value = comments.value.map(() => '')
+  phase.value = 'answering'
+}
+
+/** 退出答题：这时才把点评写进记录，然后离开答题页 */
+async function exitWithSummary() {
+  const text = (summaryText.value || '').trim()
+  summaryVisible.value = false
+  if (text) {
+    try {
+      await saveSummaryAPI({
+        mode: props.mode,
+        ref: summaryRef.value,
+        bank: activeCard.value?.bank || '',
+        card: activeCard.value?.category || '',
+        total: total.value,
+        max: max.value,
+        count: activeCard.value?.questions.length || 0,
+        summary: text
+      })
+      await loadRecords()
+    } catch {
+      ElMessage.warning('点评未能保存到记录')
+    }
+  }
+  closeAnswering()
+}
+
 onMounted(async () => {
   await Promise.all([loadAll(), loadRecords()])
-})
-</script>
+})</script>
 
 <style scoped>
 .qbp-head {
@@ -1647,4 +1754,42 @@ onMounted(async () => {
   .qp-side {
     position: static;
   }
+}
+
+/* ===== 交卷点评弹窗 ===== */
+.qp-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.qp-summary-score {
+  padding: 10px 14px;
+  border-radius: var(--rad-block);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-wash);
+  font-size: 12.5px;
+  color: var(--body);
+}
+.qp-summary-score b {
+  font-size: 20px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.qp-summary-text {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: var(--rad-block);
+  border: 1px solid var(--hairline);
+  background: var(--canvas-2);
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--ink);
+  text-align: justify;
+}
+.qp-summary-loading {
+  margin: 0;
+  padding: 18px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--body-muted);
 }</style>

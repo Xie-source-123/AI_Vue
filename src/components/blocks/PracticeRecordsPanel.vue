@@ -43,6 +43,7 @@
             <span class="prp-session-big">{{ s.count }}<small>题</small></span>
           </div>
           <span class="prp-session-cats">{{ s.catsText }}</span>
+          <p v-if="summaryOf(s)" class="prp-session-summary">{{ summaryOf(s) }}</p>
           <div class="prp-session-foot">
             <span class="prp-session-avg">平均 {{ s.avg }} 分 · {{ s.bank }}</span>
             <span class="prp-session-more">点开查看 ›</span>
@@ -72,6 +73,7 @@
               共 {{ e.count }} 题，作答 {{ e.answered }} 题，平均
               {{ (Number(e.total) / Math.max(1, e.count)).toFixed(1) }} 分
             </span>
+            <p v-if="e.summary" class="prp-exam-summary">{{ e.summary }}</p>
             <div class="prp-items">
               <span
                 v-for="(it, i) in e.items || []"
@@ -140,6 +142,20 @@ const loading = ref(false)
 const error = ref('')
 const practice = ref([])
 const exams = ref([])
+const summaries = ref([])
+
+/* 交卷点评：练习按批次时间戳（ref）关联，考试直接挂在考试记录上 */
+const summaryByRef = computed(() => {
+  const m = new Map()
+  summaries.value.forEach((s) => {
+    if (s.ref) m.set(s.ref, s.summary)
+  })
+  return m
+})
+
+function summaryOf(session) {
+  return summaryByRef.value.get(session.at) || ''
+}
 const fBank = ref('')
 const fDate = ref('')
 const openId = ref('')
@@ -256,6 +272,7 @@ async function load() {
     const { data } = await fetchPracticeRecordsAPI()
     practice.value = data.practice || []
     exams.value = data.exam || []
+    summaries.value = data.summaries || []
     if (props.mode === 'practice' && !questionMap.value.size) await loadQuestions()
   } catch (e) {
     error.value = '记录加载失败：' + (e.response?.data?.detail || e.message)
@@ -391,6 +408,21 @@ onMounted(load)
   font-size: 11.5px;
   color: var(--accent);
   white-space: nowrap;
+}
+/* 交卷点评 */
+.prp-session-summary,
+.prp-exam-summary {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border-left: 2px solid var(--accent-line);
+  background: var(--accent-wash);
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--body);
+}
+.prp-exam-summary {
+  margin-top: 8px;
 }
 
 /* ===== 考试：按日期分组 ===== */

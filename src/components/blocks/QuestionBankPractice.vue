@@ -1143,7 +1143,9 @@ async function submitAll() {
   const finish = async () => {
     phase.value = 'graded'
     total.value = scores.value.reduce((a, b) => a + (b || 0), 0)
-    max.value = qs.length * 10
+    // 满分按【已批改的题数】算：未作答的题不参与批改，也不该拉低得分率
+    const gradedCount = scores.value.filter((s) => s != null).length
+    max.value = Math.max(1, gradedCount) * 10
     await persistRecords(newlyGraded)
     if (props.mode === 'exam') await persistExam(qs)
     await loadRecords()

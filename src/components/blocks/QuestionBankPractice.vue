@@ -196,7 +196,7 @@
         <div class="qp-bar-right">
           <span class="qp-timer">⏱ {{ elapsedText }}</span>
           <el-button
-            v-if="phase !== 'graded'"
+            v-if="pendingCount > 0 || phase !== 'graded'"
             type="primary"
             size="small"
             :loading="grading"
@@ -204,7 +204,7 @@
           >
             {{ mode === 'exam' ? '交卷' : '批改' }}
           </el-button>
-          <span v-else class="qp-done-tip">已交卷</span>
+          <span v-else class="qp-done-tip">{{ mode === 'exam' ? '已交卷' : '已批改' }}</span>
         </div>
       </header>
 
@@ -253,7 +253,7 @@
                     wrong:
                       reveal(item.i) && chosen(item.i, o.key) && !rightKey(item.q, o.key)
                   }"
-                  :disabled="phase === 'graded' || scores[item.i] != null"
+                  :disabled="scores[item.i] != null"
                   @click="pick(item.i, o.key)"
                 >
                   <span class="qp-opt-key">{{ o.key }}.</span>
@@ -268,7 +268,7 @@
                 type="textarea"
                 :rows="4"
                 placeholder="写下你的回答"
-                :disabled="phase === 'graded' || scoringOne === item.i"
+                :disabled="scores[item.i] != null || scoringOne === item.i"
               />
 
               <!-- 我的答案 -->
@@ -283,7 +283,7 @@
                 </span>
               </div>
 
-              <div v-if="mode === 'practice' && phase !== 'graded'" class="qp-actions">
+              <div v-if="mode === 'practice' && scores[item.i] == null" class="qp-actions">
                 <el-button
                   size="small"
                   type="primary"
@@ -304,7 +304,7 @@
                 <span class="qp-lbl">解析</span>{{ item.q.explain }}
               </p>
               <p
-                v-if="!isChoice(item.q) && (scores[item.i] != null || phase === 'graded')"
+                v-if="!isChoice(item.q) && scores[item.i] != null"
                 class="qp-ref"
               >
                 <span class="qp-lbl">参考答案</span>{{ item.q.answer || '（题库未提供）' }}
@@ -959,6 +959,12 @@ function jumpTo(i) {
 
 const answeredCount = computed(() => answers.value.filter((a) => (a || '').trim()).length)
 
+/** 已作答但还没批改的题数 —— 决定「批改」按钮还该不该亮 */
+const pendingCount = computed(() => {
+  const qs = activeCard.value?.questions || []
+  return qs.filter((q, i) => scores.value[i] == null && (answers.value[i] || '').trim()).length
+})
+
 /* ===== 试卷分节：按题型分组，单选的排前面，问答题排最后 ===== */
 const CN_NUM = ['一', '二', '三', '四', '五', '六']
 const TYPE_ORDER = ['单选题', '多选题', '判断题', '问答题']
@@ -1053,9 +1059,10 @@ function pick(i, key) {
   }
 }
 
-/** 已经判过分 / 已交卷才显示对错标记和解析 */
+/** 只有【被批改过】的题才显示对错标记和解析；
+ *  没作答的题不批改，也就绝不能泄露答案。 */
 function reveal(i) {
-  return scores.value[i] != null || phase.value === 'graded'
+  return scores.value[i] != null
 }
 
 function rightKey(q, key) {

@@ -3,35 +3,30 @@
     <div class="prp-head">
       <span class="tech-section">{{ mode === 'exams' ? '模拟考试记录' : '题库练习记录' }}</span>
       <div class="prp-head-right">
-        <el-select
-          v-if="banks.length > 1"
-          v-model="fBank"
-          placeholder="全部岗位"
+        <el-button
+          v-if="fBank || fCategory || fDate"
+          link
+          type="primary"
           size="small"
-          clearable
-          style="width: 160px"
+          @click="clearFilters"
         >
-          <el-option v-for="b in banks" :key="b" :label="b" :value="b" />
-        </el-select>
-        <!-- 知识点只列出「有作答记录」的，没练过的不用出现 -->
-        <el-select
-          v-if="mode === 'practice' && categories.length > 1"
-          v-model="fCategory"
-          placeholder="全部知识点"
-          size="small"
-          clearable
-          style="width: 160px"
-        >
-          <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
-        </el-select>
-        <el-select v-model="fDate" placeholder="全部日期" size="small" clearable style="width: 150px">
-          <el-option v-for="d in dates" :key="d" :label="d" :value="d" />
-        </el-select>
-        <el-button v-if="fBank || fCategory || fDate" link type="primary" size="small" @click="clearFilters">
           清空定位
         </el-button>
         <el-button link type="primary" size="small" :loading="loading" @click="load">刷新</el-button>
       </div>
+    </div>
+
+    <!-- 精确定位：和题库练习一样的横向点击标签 -->
+    <div class="prp-filters">
+      <FilterRow v-model="fBank" label="岗位" :items="bankOptions" :total="all.length" />
+      <FilterRow
+        v-if="mode === 'practice'"
+        v-model="fCategory"
+        label="知识点"
+        :items="categoryOptions"
+        :total="all.length"
+      />
+      <FilterRow v-model="fDate" label="日期" :items="dateOptions" :total="all.length" />
     </div>
 
     <div v-if="error" class="prp-empty">{{ error }}</div>
@@ -141,6 +136,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import FilterRow from './FilterRow.vue'
 import {
   fetchPracticeRecordsAPI,
   fetchBanksAPI,
@@ -191,6 +187,44 @@ const categories = computed(() =>
 
 const dates = computed(() =>
   [...new Set(all.value.map((r) => String(r.at || '').slice(0, 10)).filter(Boolean))].sort().reverse()
+)
+
+/* 定位标签：选项来自「另外两个条件已生效」的记录，计数才有意义 */
+function optionsFrom(pick, keep) {
+  const m = new Map()
+  all.value.filter(keep).forEach((r) => {
+    const v = pick(r)
+    if (v) m.set(v, (m.get(v) || 0) + 1)
+  })
+  return [...m.entries()].map(([value, count]) => ({ value, label: value, count }))
+}
+
+const bankOptions = computed(() =>
+  optionsFrom(
+    (r) => r.bank,
+    (r) =>
+      (!fCategory.value || r.category === fCategory.value) &&
+      (!fDate.value || String(r.at || '').startsWith(fDate.value))
+  )
+)
+
+/* 知识点只列「有作答记录」的，没练过的不会出现 */
+const categoryOptions = computed(() =>
+  optionsFrom(
+    (r) => r.category,
+    (r) =>
+      (!fBank.value || r.bank === fBank.value) &&
+      (!fDate.value || String(r.at || '').startsWith(fDate.value))
+  ).sort((a, b) => (a.label < b.label ? -1 : 1))
+)
+
+const dateOptions = computed(() =>
+  optionsFrom(
+    (r) => String(r.at || '').slice(0, 10),
+    (r) =>
+      (!fBank.value || r.bank === fBank.value) &&
+      (!fCategory.value || r.category === fCategory.value)
+  ).sort((a, b) => (a.label < b.label ? 1 : -1))
 )
 
 function clearFilters() {
@@ -358,7 +392,14 @@ onMounted(load)
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+/* 定位条：和题库练习同一套横向标签 */
+.prp-filters {
   margin-bottom: 14px;
+  padding: 4px 14px;
+  border-radius: var(--rad-block);
+  background: var(--canvas-2);
 }
 .prp-head-right {
   display: flex;

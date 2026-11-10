@@ -1,5 +1,7 @@
 # AI_Vue
 
+> **版本：v1.0.0** · 构建日期 2026-11-10 · 接口版本 v1
+
 AI 模拟面试平台的**前端**（Vue 3 + Vite + Element Plus + ECharts）。
 
 ## 环境要求

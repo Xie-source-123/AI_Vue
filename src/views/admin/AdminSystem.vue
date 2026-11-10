@@ -1,5 +1,25 @@
 <template>
   <div class="a-page">
+    <!-- ===== 版本 ===== -->
+    <div class="a-card">
+      <div class="a-card-head">
+        <div>
+          <div class="a-card-title">系统版本</div>
+          <div class="a-card-sub">当前运行的后端版本与构建信息</div>
+        </div>
+      </div>
+      <div class="s-ver">
+        <div class="s-ver-main">
+          <span class="s-ver-name">{{ version.name || 'AI 模拟面试平台' }}</span>
+          <span class="s-ver-num">v{{ version.version || '—' }}</span>
+        </div>
+        <div class="s-ver-meta">
+          <span>构建日期 {{ version.build || '—' }}</span>
+          <span>接口版本 {{ version.api || '—' }}</span>
+        </div>
+      </div>
+    </div>
+
     <div class="a-card">
       <div class="a-card-head">
         <div>
@@ -125,11 +145,21 @@
 import { computed, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Connection, InfoFilled } from '@element-plus/icons-vue'
-import { fetchSystemStatusAPI, adminErrorText } from '@/api/admin.js'
+import { fetchSystemStatusAPI, fetchVersionAPI, adminErrorText } from '@/api/admin.js'
 
 const status = ref(null)
 const loading = ref(false)
 const probing = ref(false)
+const version = ref({})
+
+async function loadVersion() {
+  try {
+    const { data } = await fetchVersionAPI()
+    version.value = data || {}
+  } catch {
+    version.value = {}
+  }
+}
 
 const difyDot = computed(() => {
   const d = status.value?.dify
@@ -164,10 +194,49 @@ async function load(probe) {
   }
 }
 
-onMounted(() => load(false))
+onMounted(() => {
+  loadVersion()
+  load(false)
+})
 </script>
 
 <style scoped>
+/* ===== 版本卡片 ===== */
+.s-ver {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: var(--rad-block);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-wash);
+}
+.s-ver-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.s-ver-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.s-ver-num {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+.s-ver-meta {
+  display: flex;
+  gap: 18px;
+  font-size: 12px;
+  color: var(--body-muted);
+  font-variant-numeric: tabular-nums;
+}
 .s-note {
   display: flex;
   align-items: flex-start;

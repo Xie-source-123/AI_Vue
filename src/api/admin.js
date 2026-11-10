@@ -117,6 +117,10 @@ export function saveAnnouncementsAPI(announcements) {
 export function fetchOverviewAPI() {
   return adminApi.get('/api/admin/overview')
 }
+// 版本号（公开接口，不带管理令牌也能取）
+export function fetchVersionAPI() {
+  return axios.get(`${BASE_URL}/api/version`, { timeout: 10000 })
+}
 export function fetchSystemStatusAPI(probe = false) {
   return adminApi.get('/api/admin/system-status', { params: { probe: probe ? 1 : 0 } })
 }

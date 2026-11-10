@@ -88,8 +88,22 @@ export function deletePositionAPI(value) {
 
 /* ===== 题库管理 =====
    已改成「多题库」模型：题库由 Excel 导入或手动新建，题目挂在题库下面。
-   旧的单列表接口（/api/admin/questions）连同它的四个函数一起删了 ——
-   后端已经没有那个路由，留着只会让人误以为还能用。 */
+   上传拆成两步：先 parse 拿预览（不入库），人工确认后再 commit。 */
+
+// 解析 Excel，返回可编辑的题目预览（不落库）
+export function parseBankAPI(payload) {
+  return adminApi.post('/api/admin/banks/parse', payload, { timeout: 180000 })
+}
+
+// 把确认过的预览正式入库
+export function commitBankAPI(payload) {
+  return adminApi.post('/api/admin/banks/commit', payload, { timeout: 180000 })
+}
+
+// 跨题库的题目总表（管理页定位用）
+export function fetchAllQuestionsAPI() {
+  return adminApi.get('/api/admin/questions', { timeout: 60000 })
+}
 
 /* ===== 公告（跑马灯）===== */
 export function fetchAnnouncementsAPI() {

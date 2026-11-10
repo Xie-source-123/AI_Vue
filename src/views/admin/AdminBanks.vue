@@ -1,317 +1,460 @@
 <template>
   <div class="a-page">
-    <!-- ===== 题库列表 ===== -->
-    <div class="a-card">
-      <div class="a-card-head">
-        <div>
-          <div class="a-card-title">题库管理</div>
-          <div class="a-card-sub">
-            共 {{ banks.length }} 个题库 · 当前选中《{{ currentBank?.name || '未选择' }}》
-            · {{ questions.length }} 道题
+    <!-- ==================== 导入预览（覆盖整页，非弹窗） ==================== -->
+    <template v-if="previewing">
+      <div class="a-card">
+        <div class="a-card-head">
+          <div>
+            <div class="a-card-title">导入预览</div>
+            <div class="a-card-sub">
+              共解析 <b class="hl">{{ preview.length }}</b> 题 ·
+              待补充 <b :class="lackingCount ? 'bad' : 'hl'">{{ lackingCount }}</b> 题 ·
+              工作表：{{ previewSheets.join('、') || '—' }}
+            </div>
+          </div>
+          <div class="a-toolbar">
+            <el-input v-model="previewName" placeholder="题库名称" style="width: 240px" />
+            <el-button @click="cancelPreview">取消导入</el-button>
+            <el-button type="primary" :loading="committing" @click="confirmImport">
+              确认导入
+            </el-button>
           </div>
         </div>
-        <div class="a-toolbar">
-          <el-button :icon="Refresh" :loading="loading" @click="loadBanks">刷新</el-button>
-          <el-button :icon="Plus" @click="openCreateBank">新建空题库</el-button>
-          <el-button type="primary" :icon="Upload" :loading="uploading" @click="pickFile">
-            上传 Excel
-          </el-button>
-          <input
-            ref="fileInput"
-            type="file"
-            accept=".xlsx"
-            style="display: none"
-            @change="onFileChange"
-          />
-        </div>
+
+        <p class="q-note">
+          <el-icon :size="13"><InfoFilled /></el-icon>
+          下面是系统从表格里读出来的内容。<b>确认前没有任何数据写入</b>；
+          标红的行是没读到选项或答案的，点「修改」补好再导入。
+        </p>
+
+        <el-table v-loading="parsing" :data="preview" size="small" height="62vh">
+          <el-table-column type="index" label="#" width="50" />
+          <el-table-column prop="type" label="题型" width="90" />
+          <el-table-column label="题干" min-width="240" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.title }}</template>
+          </el-table-column>
+          <el-table-column label="选项" min-width="200">
+            <template #default="{ row }">
+              <span v-if="row.options && row.options.length" class="q-opts-mini">
+                <span v-for="o in row.options" :key="o.key" class="q-opt-mini">
+                  {{ o.key }}. {{ o.text }}
+                </span>
+              </span>
+              <span v-else class="q-none">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="答案" width="96">
+            <template #default="{ row }">
+              <span :class="{ bad: (row.missing || []).includes('正确答案') }">
+                {{ row.correct || '缺' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="150">
+            <template #default="{ row }">
+              <el-tag v-if="!(row.missing || []).length" size="small" type="success" effect="plain">
+                完整
+              </el-tag>
+              <el-tag v-else size="small" type="danger" effect="plain">
+                待补充：{{ row.missing.join('、') }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="{ row, $index }">
+              <el-button link type="primary" size="small" @click="editPreview(row, $index)">
+                修改
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
+    </template>
 
-      <p class="q-note">
-        <el-icon :size="13"><InfoFilled /></el-icon>
-        上传的 Excel 需要有表头，列名支持：<b>题号 / 题目 / 参考答案 / 难度 / 知识点分类 / 岗位</b>，
-        其中<b>题目列必填</b>。一次上传建立一个新题库，原有的不会被覆盖。
-      </p>
-
-      <el-table
-        v-loading="loading"
-        :data="banks"
-        size="small"
-        highlight-current-row
-        empty-text="还没有题库，上传一个 Excel 试试"
-        @current-change="onPickBank"
-      >
-        <el-table-column prop="name" label="题库名称" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="source" label="来源文件" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span class="q-none">{{ row.source || '手动创建' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="count" label="题数" width="80" />
-        <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="244" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click.stop="manageBank(row)">
-              管理题目
+    <!-- ==================== 正常页 ==================== -->
+    <template v-else>
+      <!-- 题库列表 -->
+      <div class="a-card">
+        <div class="a-card-head">
+          <div>
+            <div class="a-card-title">题库</div>
+            <div class="a-card-sub">共 {{ banks.length }} 个题库 · 合计 {{ allQuestions.length }} 题</div>
+          </div>
+          <div class="a-toolbar">
+            <el-button :icon="Refresh" :loading="loading" @click="loadAll">刷新</el-button>
+            <el-button :icon="Plus" @click="openCreateBank">新建空题库</el-button>
+            <el-button type="primary" :icon="Upload" :loading="parsing" @click="pickFile">
+              上传 Excel
             </el-button>
-            <el-button link type="primary" size="small" @click.stop="openRename(row)">重命名</el-button>
-            <el-button link type="danger" size="small" @click.stop="removeBank(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+            <input ref="fileInput" type="file" accept=".xlsx" style="display: none" @change="onFileChange" />
+          </div>
+        </div>
 
-    <!-- ===== 题目列表 ===== -->
-    <div v-if="currentBank" ref="questionCard" class="a-card">
-      <div class="a-card-head">
-        <div>
-          <div class="a-card-title">{{ currentBank.name }}</div>
-          <div class="a-card-sub">共 {{ questions.length }} 题 · 可逐题修改，也可新增</div>
-        </div>
-        <div class="a-toolbar">
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增题目</el-button>
-        </div>
+        <el-table :data="banks" size="small" empty-text="还没有题库，上传一个 Excel 试试">
+          <el-table-column prop="name" label="题库名称" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="source" label="来源文件" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="q-none">{{ row.source || '手动创建' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="count" label="题数" width="80" />
+          <el-table-column label="操作" width="150" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click.stop="renameBank(row)">重命名</el-button>
+              <el-button link type="danger" size="small" @click.stop="removeBank(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
-      <!-- 定位栏：和用户端同一套横向分类标签，替代原来的搜索框 -->
-      <div class="q-filters">
-        <FilterRow v-model="fCategory" label="知识点" :items="catOptions" :total="questions.length" />
-        <FilterRow v-model="fDifficulty" label="难度" :items="diffOptions" :total="questions.length" />
-        <FilterRow v-model="fPosition" label="岗位" :items="posOptions" :total="questions.length" />
-      </div>
-
-      <el-table v-loading="qLoading" :data="paged" size="small" empty-text="这个题库还没有题目">
-        <!-- 展开行：表格里放不下完整题干和参考答案，这里展开看 -->
-        <el-table-column type="expand">
-          <template #default="{ row }">
-            <div class="q-expand">
-              <div class="q-expand-row">
-                <span class="q-expand-lbl">题目</span>
-                <p>{{ row.title }}</p>
-              </div>
-              <div class="q-expand-row">
-                <span class="q-expand-lbl">参考答案</span>
-                <p>{{ row.answer || '（未填写）' }}</p>
-              </div>
+      <!-- 题目管理 -->
+      <div class="a-card">
+        <div class="a-card-head">
+          <div>
+            <div class="a-card-title">题目管理</div>
+            <div class="a-card-sub">
+              共 <b class="hl">{{ filteredQuestions.length }}</b> / {{ allQuestions.length }} 题 ·
+              待补充 <b :class="lackingTotal ? 'bad' : 'hl'">{{ lackingTotal }}</b> 题
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="no" label="题号" width="80" />
-        <el-table-column prop="title" label="题目" min-width="300" show-overflow-tooltip />
-        <el-table-column prop="difficulty" label="难度" width="86" />
-        <el-table-column prop="category" label="知识点分类" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="position" label="岗位" min-width="140" show-overflow-tooltip />
-        <el-table-column label="操作" width="140" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="removeQuestion(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          </div>
+          <div class="a-toolbar">
+            <el-input
+              v-model="keyword"
+              placeholder="搜索题干 / 选项 / 解析…"
+              :prefix-icon="Search"
+              clearable
+              style="width: 230px"
+            />
+            <el-button type="primary" :icon="Plus" @click="openCreate">新增题目</el-button>
+          </div>
+        </div>
 
-      <el-pagination
-        v-if="filtered.length > pageSize"
-        :total="filtered.length"
-        :page-size="pageSize"
-        :current-page="page"
-        layout="total, prev, pager, next"
-        class="q-pager"
-        @current-change="(p) => (page = p)"
-      />
-    </div>
+        <!-- 定位条：岗位（全部）/ 知识点 / 难度 / 题型 -->
+        <div class="q-filters">
+          <FilterRow v-model="fPosition" label="岗位" :items="positionOptions" :total="allQuestions.length" />
+          <FilterRow v-model="fCategory" label="知识点" :items="categoryOptions" :total="allQuestions.length" />
+          <FilterRow v-model="fDifficulty" label="难度" :items="difficultyOptions" :total="allQuestions.length" />
+          <FilterRow v-model="fType" label="题型" :items="typeOptions" :total="allQuestions.length" />
+        </div>
 
-    <!-- ===== 新增 / 编辑题目 ===== -->
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑题目' : '新增题目'" width="620px" append-to-body>
+        <div v-if="hasActiveFilter || keyword" class="q-clear-row">
+          <button class="q-clear" @click="clearFilters">清空全部定位条件</button>
+        </div>
+
+        <el-table v-loading="loading" :data="pagedQuestions" size="small" empty-text="没有符合条件的题目">
+          <el-table-column prop="no" label="题号" width="66" />
+          <el-table-column prop="type" label="题型" width="86" />
+          <el-table-column label="题干" min-width="230" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.title }}</template>
+          </el-table-column>
+          <el-table-column label="选项" min-width="180">
+            <template #default="{ row }">
+              <span v-if="row.options && row.options.length" class="q-opts-mini">
+                <span v-for="o in row.options" :key="o.key" class="q-opt-mini">
+                  {{ o.key }}. {{ o.text }}
+                </span>
+              </span>
+              <span v-else class="q-none">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="答案/参考" width="110">
+            <template #default="{ row }">
+              <span v-if="isObjective(row)">{{ row.correct || '缺' }}</span>
+              <span v-else class="q-none" :title="row.answer">参考答案</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="category" label="知识点" width="130" show-overflow-tooltip />
+          <el-table-column prop="difficulty" label="难度" width="76" />
+          <el-table-column prop="bank" label="岗位/题库" width="140" show-overflow-tooltip />
+          <el-table-column label="状态" width="120">
+            <template #default="{ row }">
+              <el-tag v-if="!(row.missing || []).length" size="small" type="success" effect="plain">完整</el-tag>
+              <el-tag v-else size="small" type="danger" effect="plain" :title="row.missing.join('、')">
+                待补充
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+              <el-button link type="danger" size="small" @click="removeQuestion(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-pagination
+          v-if="filteredQuestions.length > pageSize"
+          :total="filteredQuestions.length"
+          :page-size="pageSize"
+          :current-page="page"
+          layout="total, prev, pager, next"
+          class="q-pager"
+          @current-change="(p) => (page = p)"
+        />
+      </div>
+    </template>
+
+    <!-- ==================== 新增 / 编辑题目 ==================== -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px" append-to-body>
       <el-form :model="form" label-position="top">
         <div class="q-grid">
-          <el-form-item label="题号"><el-input v-model="form.no" placeholder="留空则自动编号" /></el-form-item>
+          <el-form-item label="题型">
+            <el-select v-model="form.type" style="width: 100%" @change="onTypeChange">
+              <el-option v-for="t in TYPE_LIST" :key="t" :label="t" :value="t" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="难度">
             <el-select v-model="form.difficulty" style="width: 100%">
-              <el-option label="基础" value="基础" />
-              <el-option label="进阶" value="进阶" />
-              <el-option label="真题" value="真题" />
+              <el-option label="基础（简单）" value="基础" />
+              <el-option label="进阶（适中）" value="进阶" />
+              <el-option label="真题（难）" value="真题" />
             </el-select>
           </el-form-item>
           <el-form-item label="知识点分类">
-            <el-input v-model="form.category" placeholder="如：大数据基础" />
+            <el-input v-model="form.category" placeholder="如：Hadoop生态" />
           </el-form-item>
           <el-form-item label="岗位">
-            <el-input v-model="form.position" placeholder="如：大数据开发工程师" />
+            <el-input v-model="form.position" placeholder="如：大数据分析工程师" />
           </el-form-item>
         </div>
-        <el-form-item label="题目">
-          <el-input v-model="form.title" type="textarea" :rows="2" placeholder="题干内容" />
+
+        <el-form-item v-if="dialogMode === 'create'" label="归入题库">
+          <el-select v-model="form.bankId" style="width: 100%" placeholder="选择题库">
+            <el-option v-for="b in banks" :key="b.id" :label="`${b.name}（${b.count} 题）`" :value="b.id" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="参考答案">
-          <el-input v-model="form.answer" type="textarea" :rows="6" placeholder="评分时对照的参考答案" />
+
+        <el-form-item label="题干">
+          <el-input v-model="form.title" type="textarea" :rows="2" placeholder="题目内容" />
+        </el-form-item>
+
+        <!-- 客观题：选项 + 正确答案 -->
+        <template v-if="isObjectiveForm">
+          <el-form-item label="选项">
+            <div class="q-opt-edit">
+              <div v-for="o in form.options" :key="o.key" class="q-opt-row">
+                <span class="q-opt-key">{{ o.key }}</span>
+                <el-input v-model="o.text" :placeholder="`选项 ${o.key} 内容`" />
+              </div>
+              <el-button
+                v-if="form.type !== '判断题' && form.options.length < 6"
+                size="small"
+                text
+                @click="addOption"
+              >
+                + 添加选项
+              </el-button>
+            </div>
+          </el-form-item>
+
+          <el-form-item label="正确答案">
+            <el-select
+              v-if="form.type === '多选题'"
+              v-model="multiCorrect"
+              multiple
+              style="width: 100%"
+              placeholder="可多选"
+            >
+              <el-option
+                v-for="o in form.options"
+                :key="o.key"
+                :label="`${o.key}. ${o.text || '(空)'}`"
+                :value="o.key"
+              />
+            </el-select>
+            <el-select v-else v-model="form.correct" style="width: 100%" placeholder="选择正确答案">
+              <el-option
+                v-for="o in form.options"
+                :key="o.key"
+                :label="`${o.key}. ${o.text || '(空)'}`"
+                :value="o.key"
+              />
+            </el-select>
+          </el-form-item>
+        </template>
+
+        <!-- 主观题：参考答案 -->
+        <el-form-item v-else label="参考答案">
+          <el-input v-model="form.answer" type="textarea" :rows="4" placeholder="评分时对照的参考答案" />
+        </el-form-item>
+
+        <el-form-item label="解析（判分后展示，可留空）">
+          <el-input v-model="form.explain" type="textarea" :rows="2" placeholder="为什么是这个答案" />
         </el-form-item>
       </el-form>
+
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="submit">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- ===== 新建 / 重命名题库 ===== -->
-    <el-dialog v-model="bankDialogVisible" :title="bankDialogTitle" width="440px" append-to-body>
-      <el-form label-position="top">
-        <el-form-item :label="bankDialogMode === 'rename' ? '新名称' : '题库名称'">
-          <el-input
-            v-model="bankNameInput"
-            placeholder="例如：大数据开发工程师"
-            maxlength="50"
-            show-word-limit
-            @keyup.enter="submitBankDialog"
-          />
-        </el-form-item>
-      </el-form>
-      <p class="q-tip-inline">
-        题库名会直接显示在用户端的「岗位」分类里，建议按岗位命名。
-      </p>
-      <template #footer>
-        <el-button @click="bankDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="bankSaving" @click="submitBankDialog">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus, Upload, InfoFilled } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Upload, InfoFilled } from '@element-plus/icons-vue'
 import FilterRow from '@/components/blocks/FilterRow.vue'
 import {
   fetchBanksAdminAPI,
-  uploadBankAPI,
+  parseBankAPI,
+  commitBankAPI,
+  fetchAllQuestionsAPI,
   createBankAPI,
   deleteBankAPI,
   renameBankAPI,
-  fetchBankQuestionsAPI,
   addQuestionAPI,
   updateQuestionAPI,
   deleteQuestionAPI,
   adminErrorText
 } from '@/api/admin.js'
 
+/* ==================== 状态 ==================== */
 const banks = ref([])
-const currentBank = ref(null)
-const questions = ref([])
+const allQuestions = ref([])
 const loading = ref(false)
-const qLoading = ref(false)
-const uploading = ref(false)
+const parsing = ref(false)
+const committing = ref(false)
 const saving = ref(false)
-const fCategory = ref('')
-const fDifficulty = ref('')
-const fPosition = ref('')
-const questionCard = ref(null)
 const page = ref(1)
 const pageSize = 20
+
+const keyword = ref('')
+const fPosition = ref('')
+const fCategory = ref('')
+const fDifficulty = ref('')
+const fType = ref('')
+
+/* 预览 */
+const previewing = ref(false)
+const preview = ref([])
+const previewName = ref('')
+const previewSheets = ref([])
+const previewIndex = ref(-1)
+
 const fileInput = ref(null)
 
-/* 难度只在显示层映射：Excel 里是基础/进阶/真题，界面上按简单/适中/难展示 */
-const DIFF_MAP = { 基础: '简单', 进阶: '适中', 真题: '难' }
-const diffLabel = (d) => DIFF_MAP[d] || d || '基础'
+const TYPE_LIST = ['单选题', '多选题', '判断题', '问答题']
+const OBJECTIVE = ['单选题', '多选题', '判断题']
 
-const filtered = computed(() => {
-  let arr = questions.value
-  if (fCategory.value) arr = arr.filter((q) => (q.category || '未分类') === fCategory.value)
-  if (fDifficulty.value) arr = arr.filter((q) => diffLabel(q.difficulty) === fDifficulty.value)
-  if (fPosition.value) arr = arr.filter((q) => (q.position || '通用') === fPosition.value)
-  return arr
-})
+const isObjective = (q) => OBJECTIVE.includes(q?.type)
+const isObjectiveForm = computed(() => OBJECTIVE.includes(form.type))
 
-const catOptions = computed(() => {
-  const m = new Map()
-  questions.value.forEach((q) => {
-    const k = q.category || '未分类'
-    m.set(k, (m.get(k) || 0) + 1)
-  })
-  return [...m.entries()].map(([value, count]) => ({ value, label: value, count }))
-})
-
-const diffOptions = computed(() => {
-  const m = new Map()
-  questions.value.forEach((q) => {
-    const k = diffLabel(q.difficulty)
-    m.set(k, (m.get(k) || 0) + 1)
-  })
-  return ['简单', '适中', '难'].filter((d) => m.has(d)).map((d) => ({ value: d, label: d, count: m.get(d) }))
-})
-
-const posOptions = computed(() => {
-  const m = new Map()
-  questions.value.forEach((q) => {
-    const k = q.position || '通用'
-    m.set(k, (m.get(k) || 0) + 1)
-  })
-  return [...m.entries()].map(([value, count]) => ({ value, label: value, count }))
-})
-
-const paged = computed(() =>
-  filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize)
-)
-
+/* ==================== 数据加载 ==================== */
 async function loadBanks() {
+  const { data } = await fetchBanksAdminAPI()
+  banks.value = data.banks || []
+}
+
+async function loadAllQuestions() {
+  const { data } = await fetchAllQuestionsAPI()
+  allQuestions.value = data.questions || []
+}
+
+async function loadAll() {
   loading.value = true
   try {
-    const { data } = await fetchBanksAdminAPI()
-    banks.value = data.banks || []
-    // 选中的题库可能被删了，指向第一个
-    if (currentBank.value) {
-      const still = banks.value.find((b) => b.id === currentBank.value.id)
-      currentBank.value = still || banks.value[0] || null
-    } else {
-      currentBank.value = banks.value[0] || null
-    }
-    if (currentBank.value) await loadQuestions()
+    await Promise.all([loadBanks(), loadAllQuestions()])
   } catch (e) {
-    ElMessage.error(adminErrorText(e, '加载题库失败'))
+    ElMessage.error(adminErrorText(e, '加载失败'))
   } finally {
     loading.value = false
   }
 }
 
-async function loadQuestions() {
-  if (!currentBank.value) return
-  qLoading.value = true
-  try {
-    const { data } = await fetchBankQuestionsAPI(currentBank.value.id)
-    questions.value = data.questions || []
-    // 换库后旧的筛选条件多半一条都匹配不上，重置掉
-    fCategory.value = ''
-    fDifficulty.value = ''
-    fPosition.value = ''
-    page.value = 1
-  } catch (e) {
-    ElMessage.error(adminErrorText(e, '加载题目失败'))
-  } finally {
-    qLoading.value = false
-  }
+/* ==================== 定位与筛选 ==================== */
+function optionsOf(pick, keep) {
+  const m = new Map()
+  allQuestions.value.filter(keep).forEach((q) => {
+    const v = pick(q)
+    if (v) m.set(v, (m.get(v) || 0) + 1)
+  })
+  return [...m.entries()].map(([value, count]) => ({ value, label: value, count }))
 }
 
-/** 点表格行：只切换题库，不滚动 */
-function onPickBank(row) {
-  if (!row) return
-  selectBank(row, false)
+const positionOptions = computed(() =>
+  optionsOf(
+    (q) => q.position || q.bank,
+    (q) =>
+      (!fCategory.value || q.category === fCategory.value) &&
+      (!fDifficulty.value || q.difficulty === fDifficulty.value) &&
+      (!fType.value || (q.type || '问答题') === fType.value)
+  )
+)
+
+const categoryOptions = computed(() =>
+  optionsOf(
+    (q) => q.category || '未分类',
+    (q) =>
+      (!fPosition.value || (q.position || q.bank) === fPosition.value) &&
+      (!fDifficulty.value || q.difficulty === fDifficulty.value) &&
+      (!fType.value || (q.type || '问答题') === fType.value)
+  )
+)
+
+const difficultyOptions = computed(() =>
+  optionsOf(
+    (q) => q.difficulty || '基础',
+    (q) =>
+      (!fPosition.value || (q.position || q.bank) === fPosition.value) &&
+      (!fCategory.value || q.category === fCategory.value) &&
+      (!fType.value || (q.type || '问答题') === fType.value)
+  )
+)
+
+const typeOptions = computed(() =>
+  optionsOf(
+    (q) => q.type || '问答题',
+    (q) =>
+      (!fPosition.value || (q.position || q.bank) === fPosition.value) &&
+      (!fCategory.value || q.category === fCategory.value) &&
+      (!fDifficulty.value || q.difficulty === fDifficulty.value)
+  )
+)
+
+const hasActiveFilter = computed(
+  () => !!(fPosition.value || fCategory.value || fDifficulty.value || fType.value)
+)
+
+function clearFilters() {
+  fPosition.value = ''
+  fCategory.value = ''
+  fDifficulty.value = ''
+  fType.value = ''
+  keyword.value = ''
+  page.value = 1
 }
 
-/** 点「管理题目」：切换 + 滚到题目区。
-    之前这里写的是「已经是当前题库就直接 return」，
-    所以点当前那行的按钮时毫无反应 —— 看起来就像按钮坏了。 */
-function manageBank(row) {
-  if (!row) return
-  selectBank(row, true)
-}
+const filteredQuestions = computed(() => {
+  const k = keyword.value.trim().toLowerCase()
+  return allQuestions.value.filter((q) => {
+    if (fPosition.value && (q.position || q.bank) !== fPosition.value) return false
+    if (fCategory.value && (q.category || '未分类') !== fCategory.value) return false
+    if (fDifficulty.value && (q.difficulty || '基础') !== fDifficulty.value) return false
+    if (fType.value && (q.type || '问答题') !== fType.value) return false
+    if (!k) return true
+    const hay = [
+      q.title,
+      q.correct,
+      q.answer,
+      q.explain,
+      q.category,
+      q.position,
+      ...(q.options || []).map((o) => o.text)
+    ]
+    return hay.some((v) => String(v || '').toLowerCase().includes(k))
+  })
+})
 
-async function selectBank(row, scroll) {
-  currentBank.value = row
-  await loadQuestions()
-  if (scroll) {
-    await nextTick()
-    questionCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-}
+const pagedQuestions = computed(() =>
+  filteredQuestions.value.slice((page.value - 1) * pageSize, page.value * pageSize)
+)
 
+const lackingTotal = computed(() => allQuestions.value.filter((q) => (q.missing || []).length).length)
+const lackingCount = computed(() => preview.value.filter((q) => (q.missing || []).length).length)
+
+/* ==================== 上传 → 预览 ==================== */
 function pickFile() {
   fileInput.value?.click()
 }
@@ -324,7 +467,7 @@ async function onFileChange(e) {
     ElMessage.warning('目前只支持 .xlsx 格式')
     return
   }
-  uploading.value = true
+  parsing.value = true
   try {
     const dataUrl = await new Promise((resolve, reject) => {
       const r = new FileReader()
@@ -333,148 +476,279 @@ async function onFileChange(e) {
       r.readAsDataURL(file)
     })
     const dataBase64 = String(dataUrl).split(',')[1] || ''
-    const { data } = await uploadBankAPI({
-      name: file.name.replace(/\.xlsx$/i, ''),
-      filename: file.name,
-      dataBase64
+    const { data } = await parseBankAPI({ filename: file.name, data_base64: dataBase64 })
+    preview.value = data.questions || []
+    previewSheets.value = data.sheets || []
+    previewName.value = data.suggestName || file.name.replace(/\.xlsx$/i, '')
+    previewSource.value = file.name
+    previewing.value = true
+    ElMessage.success(`已解析 ${preview.value.length} 题，请检查后确认导入`)
+  } catch (err) {
+    ElMessage.error(adminErrorText(err, '解析失败'))
+  } finally {
+    parsing.value = false
+  }
+}
+
+const previewSource = ref('')
+
+function cancelPreview() {
+  previewing.value = false
+  preview.value = []
+  previewSheets.value = []
+}
+
+async function confirmImport() {
+  if (!preview.value.length) return
+  committing.value = true
+  try {
+    const { data } = await commitBankAPI({
+      name: previewName.value,
+      source: previewSource.value,
+      questions: preview.value
     })
     ElMessage.success(data.message || '导入成功')
-    await loadBanks()
-    const created = banks.value.find((b) => b.id === data.bank?.id)
-    if (created) onPickBank(created)
+    previewing.value = false
+    preview.value = []
+    await loadAll()
   } catch (e) {
-    ElMessage.error(adminErrorText(e, '上传失败'))
+    ElMessage.error(adminErrorText(e, '导入失败'))
   } finally {
-    uploading.value = false
+    committing.value = false
   }
 }
 
-/* ===== 新建 / 重命名题库 =====
-   刻意不用 ElMessageBox.prompt：这个项目的弹窗被全局改成了卡片材质
-   （毛玻璃 + 渐变底），message-box 的输入框在这种材质下容易看不出边界，
-   用户会以为「点了没反应」。改用和「新增题目」同一个 el-dialog，所见即所得。 */
-const bankDialogVisible = ref(false)
-const bankDialogMode = ref('create') // create | rename
-const bankDialogTarget = ref(null)
-const bankNameInput = ref('')
-const bankSaving = ref(false)
+function editPreview(row, idx) {
+  previewIndex.value = idx
+  dialogMode.value = 'preview'
+  fillForm(row)
+  dialogVisible.value = true
+}
 
-const bankDialogTitle = computed(() =>
-  bankDialogMode.value === 'rename' ? '重命名题库' : '新建空题库'
-)
-
+/* ==================== 题库操作 ==================== */
 function openCreateBank() {
-  bankDialogMode.value = 'create'
-  bankDialogTarget.value = null
-  bankNameInput.value = ''
-  bankDialogVisible.value = true
-}
-
-function openRename(row) {
-  bankDialogMode.value = 'rename'
-  bankDialogTarget.value = row
-  bankNameInput.value = row.name || ''
-  bankDialogVisible.value = true
-}
-
-async function submitBankDialog() {
-  const name = (bankNameInput.value || '').trim()
-  if (!name) {
-    ElMessage.warning('名称不能为空')
-    return
-  }
-  if (bankDialogMode.value === 'rename' && name === bankDialogTarget.value?.name) {
-    bankDialogVisible.value = false
-    return
-  }
-  bankSaving.value = true
-  try {
-    if (bankDialogMode.value === 'rename') {
-      await renameBankAPI(bankDialogTarget.value.id, name)
-      ElMessage.success('已重命名')
-    } else {
-      await createBankAPI(name)
+  ElMessageBox.prompt('给新题库起个名字', '新建题库', {
+    confirmButtonText: '创建',
+    cancelButtonText: '取消',
+    inputPattern: /\S+/,
+    inputErrorMessage: '名称不能为空'
+  })
+    .then(async (r) => {
+      await createBankAPI((r.value || '').trim())
       ElMessage.success('已创建')
-    }
-    bankDialogVisible.value = false
-    await loadBanks()
+      await loadAll()
+    })
+    .catch(() => {})
+}
+
+async function renameBank(row) {
+  try {
+    const r = await ElMessageBox.prompt('新的题库名称', '重命名题库', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: row.name,
+      inputPattern: /\S+/,
+      inputErrorMessage: '名称不能为空'
+    })
+    const name = (r.value || '').trim()
+    if (!name || name === row.name) return
+    await renameBankAPI(row.id, name)
+    ElMessage.success('已重命名')
+    await loadAll()
   } catch (e) {
-    ElMessage.error(adminErrorText(e, bankDialogMode.value === 'rename' ? '重命名失败' : '创建失败'))
-  } finally {
-    bankSaving.value = false
+    if (e !== 'cancel') ElMessage.error(adminErrorText(e, '重命名失败'))
   }
 }
 
 async function removeBank(row) {
   try {
-    await ElMessageBox.confirm(
-      `将删除题库「${row.name}」及其 ${row.count} 道题，不可撤销。`,
-      '删除题库',
-      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
-    )
+    await ElMessageBox.confirm(`将删除题库「${row.name}」及其 ${row.count} 道题，不可撤销。`, '删除题库', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
   } catch {
     return
   }
   try {
     await deleteBankAPI(row.id)
     ElMessage.success('已删除')
-    if (currentBank.value?.id === row.id) currentBank.value = null
-    await loadBanks()
+    await loadAll()
   } catch (e) {
     ElMessage.error(adminErrorText(e, '删除失败'))
   }
 }
 
-/* ===== 新增 / 编辑 ===== */
+/* ==================== 新增 / 编辑题目 ==================== */
 const dialogVisible = ref(false)
-const editing = ref(null)
-const form = reactive({ no: '', title: '', answer: '', difficulty: '基础', category: '', position: '' })
+const dialogMode = ref('create') // create | edit | preview
+const editingRow = ref(null)
+const multiCorrect = ref([])
 
-function resetForm() {
-  Object.assign(form, { no: '', title: '', answer: '', difficulty: '基础', category: '', position: '' })
+const form = reactive({
+  bankId: '',
+  no: '',
+  type: '单选题',
+  title: '',
+  options: [],
+  correct: '',
+  explain: '',
+  answer: '',
+  difficulty: '基础',
+  category: '',
+  position: ''
+})
+
+const dialogTitle = computed(() =>
+  dialogMode.value === 'create' ? '新增题目' : dialogMode.value === 'preview' ? '修改预览中的题目' : '编辑题目'
+)
+
+function blankOptions() {
+  return ['A', 'B', 'C', 'D'].map((k) => ({ key: k, text: '' }))
+}
+
+function fillForm(row) {
+  form.bankId = row.bankId || banks.value[0]?.id || ''
+  form.no = row.no || ''
+  form.type = row.type || '问答题'
+  form.title = row.title || ''
+  form.options = (row.options || []).map((o) => ({ key: o.key, text: o.text }))
+  form.correct = row.correct || ''
+  form.explain = row.explain || ''
+  form.answer = row.answer || ''
+  form.difficulty = row.difficulty || '基础'
+  form.category = row.category || ''
+  form.position = row.position || ''
+  if (OBJECTIVE.includes(form.type) && !form.options.length) form.options = blankOptions()
+  multiCorrect.value = form.type === '多选题' ? String(form.correct || '').split('') : []
 }
 
 function openCreate() {
-  editing.value = null
-  resetForm()
+  dialogMode.value = 'create'
+  editingRow.value = null
+  previewIndex.value = -1
+  fillForm({ type: '单选题' })
   dialogVisible.value = true
 }
 
 function openEdit(row) {
-  editing.value = row
-  Object.assign(form, {
-    no: row.no || '',
-    title: row.title || '',
-    answer: row.answer || '',
-    difficulty: row.difficulty || '基础',
-    category: row.category || '',
-    position: row.position || ''
-  })
+  dialogMode.value = 'edit'
+  editingRow.value = row
+  previewIndex.value = -1
+  fillForm(row)
   dialogVisible.value = true
+}
+
+/** 切题型时把字段准备好：判断固定正确/错误，主观清空选项 */
+function onTypeChange(t) {
+  if (t === '判断题') {
+    form.options = [
+      { key: 'A', text: '正确' },
+      { key: 'B', text: '错误' }
+    ]
+    if (!['A', 'B'].includes(form.correct)) form.correct = 'A'
+  } else if (t === '问答题') {
+    form.options = []
+    form.correct = ''
+  } else {
+    if (!form.options.length || form.type === '多选题') {
+      if (form.options.length < 2) form.options = blankOptions()
+    }
+    if (form.type === '多选题') multiCorrect.value = String(form.correct || '').split('')
+  }
+}
+
+function addOption() {
+  const keys = 'ABCDEF'
+  const next = keys[form.options.length] || String(form.options.length + 1)
+  form.options.push({ key: next, text: '' })
+}
+
+function collectForm() {
+  const options = isObjectiveForm.value
+    ? form.options.filter((o) => (o.text || '').trim()).map((o) => ({ key: o.key, text: o.text.trim() }))
+    : []
+  let correct = ''
+  if (isObjectiveForm.value) {
+    correct =
+      form.type === '多选题'
+        ? [...multiCorrect.value].sort().join('')
+        : form.correct
+  }
+  return {
+    bankId: form.bankId,
+    no: form.no,
+    type: form.type,
+    title: form.title.trim(),
+    options,
+    correct,
+    explain: form.explain.trim(),
+    answer: form.answer.trim(),
+    difficulty: form.difficulty,
+    category: form.category.trim(),
+    position: form.position.trim()
+  }
 }
 
 async function submit() {
   if (!form.title.trim()) {
-    ElMessage.warning('题目不能为空')
+    ElMessage.warning('题干不能为空')
     return
   }
+  const payload = collectForm()
+
+  // 预览模式下只改本地数据，不调接口
+  if (dialogMode.value === 'preview') {
+    const idx = previewIndex.value
+    if (idx >= 0) {
+      const prev = preview.value[idx]
+      preview.value[idx] = {
+        ...prev,
+        ...payload,
+        missing: computeMissing(payload)
+      }
+    }
+    dialogVisible.value = false
+    return
+  }
+
+  const bankId = dialogMode.value === 'edit' ? editingRow.value.bankId : form.bankId
+  if (!bankId) {
+    ElMessage.warning('请先选择题库')
+    return
+  }
+
   saving.value = true
   try {
-    if (editing.value) {
-      await updateQuestionAPI(currentBank.value.id, editing.value.id, { ...form })
+    if (dialogMode.value === 'edit') {
+      await updateQuestionAPI(bankId, editingRow.value.id, payload)
       ElMessage.success('已更新')
     } else {
-      await addQuestionAPI(currentBank.value.id, { ...form })
+      await addQuestionAPI(bankId, payload)
       ElMessage.success('已新增')
     }
     dialogVisible.value = false
-    await loadQuestions()
-    await loadBanks()
+    await loadAll()
   } catch (e) {
     ElMessage.error(adminErrorText(e, '保存失败'))
   } finally {
     saving.value = false
   }
+}
+
+/** 前端预估缺失项，用于预览里即时显示（后端入库时会再算一次） */
+function computeMissing(q) {
+  const missing = []
+  if (OBJECTIVE.includes(q.type)) {
+    if ((q.options || []).length < 2) missing.push('选项')
+    if (!q.correct) missing.push('正确答案')
+    else if (!String(q.correct).split('').every((k) => (q.options || []).some((o) => o.key === k))) {
+      missing.push('正确答案')
+    }
+  } else if (!q.answer) {
+    missing.push('参考答案')
+  }
+  return missing
 }
 
 async function removeQuestion(row) {
@@ -488,30 +762,29 @@ async function removeQuestion(row) {
     return
   }
   try {
-    await deleteQuestionAPI(currentBank.value.id, row.id)
+    await deleteQuestionAPI(row.bankId, row.id)
     ElMessage.success('已删除')
-    await loadQuestions()
-    await loadBanks()
+    await loadAll()
   } catch (e) {
     ElMessage.error(adminErrorText(e, '删除失败'))
   }
 }
 
-onMounted(loadBanks)
+onMounted(loadAll)
 </script>
 
 <style scoped>
 .q-note {
-  margin: 0 0 14px;
-  padding: 10px 12px;
   display: flex;
   align-items: flex-start;
   gap: 6px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--rad-block);
+  background: var(--accent-wash);
   font-size: 12.5px;
   line-height: 1.85;
   color: var(--body-muted);
-  border-radius: var(--rad-block);
-  background: var(--accent-wash);
 }
 .q-note b {
   color: var(--ink);
@@ -519,41 +792,44 @@ onMounted(loadBanks)
 .q-none {
   color: var(--body-muted);
 }
-.q-tip-inline {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.8;
-  color: var(--body-muted);
+.bad {
+  color: var(--danger);
 }
-/* 定位栏：和用户端题库练习同一套横向分类标签 */
+.hl {
+  color: var(--accent);
+}
 .q-filters {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   padding: 4px 14px;
   border-radius: var(--rad-block);
   background: var(--canvas-2);
 }
-.q-expand {
-  padding: 10px 16px 10px 52px;
+.q-clear-row {
+  margin-bottom: 10px;
 }
-.q-expand-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 4px 0;
-}
-.q-expand-lbl {
-  flex-shrink: 0;
-  width: 60px;
+.q-clear {
+  border: 0;
+  background: transparent;
+  padding: 0;
   font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.q-clear:hover {
+  text-decoration: underline;
+}
+.q-opts-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 11.5px;
   color: var(--body-muted);
 }
-.q-expand-row p {
-  margin: 0;
-  flex: 1;
-  font-size: 12.5px;
-  line-height: 1.9;
-  color: var(--body);
-  white-space: pre-wrap;
+.q-opt-mini {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .q-pager {
   margin-top: 14px;
@@ -563,5 +839,22 @@ onMounted(loadBanks)
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 16px;
+}
+.q-opt-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.q-opt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.q-opt-key {
+  flex-shrink: 0;
+  width: 20px;
+  font-weight: 600;
+  color: var(--body-muted);
 }
 </style>

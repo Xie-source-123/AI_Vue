@@ -195,6 +195,7 @@
         <span class="qp-title">{{ activeCard?.bank }} · {{ activeCard?.name }}</span>
         <div class="qp-bar-right">
           <span class="qp-timer">⏱ {{ elapsedText }}</span>
+          <el-button size="small" :loading="clearing" @click="clearLastRecords">清空记录</el-button>
           <el-button
             v-if="pendingCount > 0 || phase !== 'graded'"
             type="primary"
@@ -371,7 +372,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   fetchBanksAPI,
   fetchBankAPI,
@@ -380,6 +381,7 @@ import {
   savePracticeRecordsAPI,
   saveExamRecordAPI,
   clearPracticeRecordsAPI,
+  deleteExamRecordAPI,
   summarizePracticeAPI,
   saveSummaryAPI
 } from '@/api/index.js'
@@ -414,6 +416,7 @@ const summaryLoading = ref(false)
 const summaryRef = ref('')     // 练习=批次时间戳 / 考试=考试记录 id
 const lastPracticeAt = ref('')
 const lastExamId = ref('')
+const clearing = ref(false)
 const activeCard = ref(null)
 const answers = ref([])
 const scores = ref([])
@@ -1194,6 +1197,55 @@ async function submitAll() {
     ElMessage.error(e.response?.data?.detail || '评分失败')
   } finally {
     grading.value = false
+  }
+}
+
+/* ============================================================
+   一键清空：只清「上一次」那次作答，不影响更早的历史
+   ============================================================ */
+async function clearLastRecords() {
+  const isExam = props.mode === 'exam'
+  const hasTarget = isExam ? !!lastExamId.value : !!lastPracticeAt.value
+  try {
+    await ElMessageBox.confirm(
+      hasTarget
+        ? `清空上一次${isExam ? '模拟考试' : '练习'}的答题记录？清空后本次作答会重置，可以重新做一遍。`
+        : `这次还没有保存过记录，要清空这张卡的全部历史记录吗？`,
+      '一键清空',
+      { confirmButtonText: '清空', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
+  clearing.value = true
+  try {
+    if (isExam) {
+      if (lastExamId.value) await deleteExamRecordAPI(lastExamId.value)
+      lastExamId.value = ''
+    } else {
+      await clearPracticeRecordsAPI(
+        activeCard.value?.bank || '',
+        activeCard.value?.category || '',
+        lastPracticeAt.value || ''
+      )
+      lastPracticeAt.value = ''
+    }
+
+    // 本地状态一起重置，回到可作答
+    const qs = activeCard.value?.questions || []
+    answers.value = qs.map(() => '')
+    scores.value = qs.map(() => null)
+    comments.value = qs.map(() => '')
+    total.value = 0
+    max.value = qs.length * 10
+    phase.value = 'answering'
+    await loadRecords()
+    ElMessage.success('已清空上一次的答题记录')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '清空失败')
+  } finally {
+    clearing.value = false
   }
 }
 

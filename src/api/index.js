@@ -167,9 +167,9 @@ export function saveExamRecordAPI(payload) {
   return api.post('/api/practice/exams', { username: getUserId(), ...payload })
 }
 
-export function clearPracticeRecordsAPI(bank, category) {
+export function clearPracticeRecordsAPI(bank, category, at = '') {
   return api.delete('/api/practice/records', {
-    params: { username: getUserId(), bank, category }
+    params: { username: getUserId(), bank, category, at }
   })
 }
 
